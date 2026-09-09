@@ -1,0 +1,63 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Public and private user information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "balance": { "type": "number", "description": "Main account balance in USD" },
+        "currency": { "type": "string", "enum": ["USD", "EUR", "GBP"] },
+        "status": { "type": "string", "enum": ["active", "suspended", "unverified"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "balance", "status"]
+    },
+    "Wallet": {
+      "title": "Crypto Wallet",
+      "description": "User's cryptocurrency wallet",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "coin": { "type": "string" },
+        "symbol": { "type": "string", "maxLength": 10 },
+        "balance": { "type": "number" },
+        "address": { "type": "string", "pattern": "^[a-zA-Z0-9]+$" },
+        "network": { "type": "string" }
+      },
+      "required": ["userId", "coin", "symbol", "balance", "address"]
+    },
+    "Transaction": {
+      "title": "Financial Transaction",
+      "description": "Records of deposits, withdrawals, transfers, and trades",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["deposit", "withdrawal", "transfer", "trade", "reward"] },
+        "amount": { "type": "number" },
+        "coin": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed", "failed", "cancelled"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "description": { "type": "string", "maxLength": 500 },
+        "txHash": { "type": "string" }
+      },
+      "required": ["userId", "type", "amount", "coin", "status", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile documents"
+    },
+    "/users/{userId}/wallets/{walletId}": {
+      "schema": "Wallet",
+      "description": "User specific crypto wallets"
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "User specific transaction history"
+    }
+  }
+}

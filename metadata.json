@@ -1,0 +1,6 @@
+{
+  "name": "Investopia",
+  "description": "A high-performance global investment and trading platform featuring real-time AI-powered market news, professional staking dashboards, and secure asset management with high-fidelity visualization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
