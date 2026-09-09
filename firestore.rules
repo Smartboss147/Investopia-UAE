@@ -9,65 +9,50 @@ service cloud.firestore {
     // Global helpers
     function isSignedIn() { return request.auth != null; }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
-    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
 
-    // User Profile Validation
-    function isValidUserProfile(data) {
-      return data.keys().hasAll(['uid', 'email', 'balance', 'status']) &&
-             data.keys().size() <= 7 &&
+    // A brand-new user profile must start at zero balance / unverified status.
+    // The server (Admin SDK) is the only thing that can ever change balance or status.
+    function isValidNewUserProfile(data) {
+      return data.keys().hasAll(['uid', 'email', 'balance', 'status', 'createdAt']) &&
+             data.keys().size() <= 8 &&
              data.uid == request.auth.uid &&
              data.email is string &&
-             data.balance is number &&
-             data.status in ['active', 'suspended', 'unverified'];
+             data.balance == 0 &&
+             data.status == 'unverified' &&
+             data.createdAt is number;
     }
 
     match /users/{userId} {
       allow get: if isOwner(userId);
-      allow create: if isOwner(userId) && isValidUserProfile(incoming());
-      allow update: if isOwner(userId) && isValidUserProfile(incoming()) && 
+      allow create: if isOwner(userId) && isValidNewUserProfile(incoming());
+
+      // Users may update their own display info only. balance, status, uid and
+      // email can never be touched by a client write, on create or update.
+      allow update: if isOwner(userId) &&
                     incoming().uid == existing().uid &&
                     incoming().email == existing().email &&
-                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'balance', 'status', 'currency']);
-      
-      // Wallets subcollection
-      match /wallets/{walletId} {
-        function isValidWallet(data) {
-          return data.keys().hasAll(['userId', 'coin', 'symbol', 'balance', 'address']) &&
-                 data.userId == request.auth.uid &&
-                 data.coin is string &&
-                 data.symbol is string && data.symbol.size() <= 10 &&
-                 data.balance is number &&
-                 data.address is string && data.address.matches('^[a-zA-Z0-9]+$');
-        }
+                    incoming().balance == existing().balance &&
+                    incoming().status == existing().status &&
+                    incoming().diff(existing()).affectedKeys()
+                      .hasOnly(['displayName', 'currency', 'photoURL', 'phoneNumber']);
 
-        allow list: if isOwner(userId);
-        allow get: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidWallet(incoming());
-        allow update: if isOwner(userId) && isValidWallet(incoming()) &&
-                      incoming().diff(existing()).affectedKeys().hasOnly(['balance']);
-        allow delete: if isOwner(userId);
+      // Wallet balances are entirely server-managed (deposits/withdrawals/trades
+      // are only ever applied by the Admin SDK backend, which bypasses these rules).
+      match /wallets/{walletId} {
+        allow list, get: if isOwner(userId);
+        allow create, update, delete: if false;
       }
 
-      // Transactions subcollection
+      // Transactions: a client may only FILE a pending request. Filing a
+      // transaction never moves money by itself — only the server can mark
+      // one completed/failed and update the balance, atomically, in the same
+      // write. A user may cancel their own still-pending request and nothing else.
       match /transactions/{transactionId} {
-        function isValidTransaction(data) {
+        function isValidTransactionRequest(data) {
           return data.keys().hasAll(['userId', 'type', 'amount', 'coin', 'status', 'timestamp']) &&
                  data.userId == request.auth.uid &&
-                 data.type in ['deposit', 'withdrawal', 'transfer', 'trade', 'reward'] &&
-                 data.amount is number &&
-                 data.status in ['pending', 'completed', 'failed', 'cancelled'];
-        }
-
-        allow list: if isOwner(userId);
-        allow get: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidTransaction(incoming());
-        // Transactions are generally immutable once completed
-        allow update: if isOwner(userId) && isValidTransaction(incoming()) &&
-                      existing().status == 'pending' &&
-                      incoming().diff(existing()).affectedKeys().hasOnly(['status', 'txHash']);
-      }
-    }
-  }
-}
+                 data.type in ['deposit', 'withdrawal', 'transfer'] &&
+                 data.amount is number && data.amount > 0 &&
+                 data.status == 'pending';
