@@ -35,6 +35,11 @@ export const AdminUserDetails: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // Suspend/Reactivate State
+  const [isSuspending, setIsSuspending] = useState(false);
+  const [suspendReason, setSuspendReason] = useState('');
+  const [suspendAction, setSuspendAction] = useState<'suspend' | 'reactivate'>('suspend');
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -104,6 +109,42 @@ export const AdminUserDetails: React.FC = () => {
     }
   };
 
+  const handleStatusUpdate = async () => {
+    setIsSubmitting(true);
+    try {
+      const idToken = await user?.getIdToken();
+      const endpoint = `/api/admin/users/${id}/${suspendAction}`;
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ reason: suspendReason })
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Status update failed');
+      }
+
+      // Refresh data
+      const refreshedResponse = await fetch(`/api/admin/users/${id}`, {
+        headers: { 'Authorization': `Bearer ${idToken}` }
+      });
+      const result = await refreshedResponse.json();
+      setData(result);
+      
+      setIsSuspending(false);
+      setSuspendReason('');
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center min-h-[400px]"><div className="w-8 h-8 border-2 border-[#D4FF3D] border-t-transparent rounded-full animate-spin" /></div>;
   if (!data) return <div className="text-center py-20 text-gray-500 underline cursor-pointer" onClick={() => navigate('/admin')}>User not found. Return to dashboard.</div>;
 
@@ -155,9 +196,50 @@ export const AdminUserDetails: React.FC = () => {
             </div>
           </Card>
 
-          <Button variant="outline" className="w-full border-red-500/20 text-red-500 hover:bg-red-500/5">
-            <Shield size={14} /> Suspend Account
-          </Button>
+          {isSuspending ? (
+            <Card className="p-6 border-red-500/20 bg-red-500/5 space-y-4">
+              <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
+                <AlertTriangle size={14} className="text-red-500" />
+                Confirm {suspendAction}
+              </h4>
+              <Input 
+                label="Reason" 
+                placeholder="Required for audit logs..."
+                value={suspendReason}
+                onChange={(e) => setSuspendReason(e.target.value)}
+                className="bg-black/20"
+              />
+              <div className="flex gap-2">
+                <Button variant="ghost" className="flex-1 text-xs" onClick={() => setIsSuspending(false)}>Cancel</Button>
+                <Button 
+                  className={cn("flex-1 text-xs", suspendAction === 'suspend' ? "bg-red-500 text-white" : "bg-emerald-500 text-black")}
+                  onClick={handleStatusUpdate}
+                  isLoading={isSubmitting}
+                  disabled={!suspendReason}
+                >
+                  Confirm
+                </Button>
+              </div>
+            </Card>
+          ) : (
+            <Button 
+              variant="outline" 
+              className={cn(
+                "w-full border-red-500/20 text-red-500 hover:bg-red-500/5",
+                data.profile.status === 'suspended' && "border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/5"
+              )}
+              onClick={() => {
+                setSuspendAction(data.profile.status === 'suspended' ? 'reactivate' : 'suspend');
+                setIsSuspending(true);
+              }}
+            >
+              {data.profile.status === 'suspended' ? (
+                <><CheckCircle2 size={14} /> Reactivate Account</>
+              ) : (
+                <><Shield size={14} /> Suspend Account</>
+              )}
+            </Button>
+          )}
         </div>
 
         {/* Main Content */}
