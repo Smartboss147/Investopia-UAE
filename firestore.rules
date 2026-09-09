@@ -75,6 +75,25 @@ service cloud.firestore {
                       incoming().status == 'cancelled' &&
                       incoming().diff(existing()).affectedKeys().hasOnly(['status']);
       }
+
+      // Price Alerts subcollection
+      match /price_alerts/{alertId} {
+        function isValidAlert(data) {
+          return data.keys().hasAll(['userId', 'symbol', 'targetPrice', 'condition', 'isActive', 'createdAt']) &&
+                 data.userId == request.auth.uid &&
+                 data.symbol is string &&
+                 data.targetPrice is number &&
+                 data.condition in ['above', 'below'] &&
+                 data.isActive is bool &&
+                 data.createdAt is number;
+        }
+
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidAlert(incoming());
+        allow update: if isOwner(userId) && isValidAlert(incoming());
+        allow delete: if isOwner(userId);
+      }
     }
   }
 }

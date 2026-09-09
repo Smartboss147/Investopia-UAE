@@ -13,6 +13,7 @@ import { TransactionsPage } from './pages/TransactionsPage';
 import { TradingPage } from './pages/TradingPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { StakingPage } from './pages/StakingPage';
+import { ComparisonPage } from './pages/ComparisonPage';
 import { ThemeProvider } from './context/ThemeContext';
 import { LoginPage } from './pages/LoginPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -49,6 +50,7 @@ export default function App() {
                     <Route path="transactions" element={<TransactionsPage />} />
                     <Route path="staking" element={<StakingPage />} />
                     <Route path="trading" element={<TradingPage />} />
+                    <Route path="compare" element={<ComparisonPage />} />
                     <Route path="transfers" element={<TransactionsPage />} /> {/* Stub */}
                     <Route path="settings" element={<ProfilePage />} />
                     <Route path="*" element={<Navigate to="dashboard" replace />} />

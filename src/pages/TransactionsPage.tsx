@@ -67,6 +67,35 @@ export const TransactionsPage: React.FC = () => {
     doc.save(`investopia_statement_${new Date().getTime()}.pdf`);
   };
 
+  const exportCSV = () => {
+    triggerHaptic();
+    const headers = ['TX ID', 'Date', 'Type', 'Asset', 'Amount', 'Value', 'Status'];
+    const rows = transactions.map(tx => [
+      tx.id,
+      tx.date,
+      tx.type,
+      tx.asset,
+      tx.amount.replace(/,/g, ''),
+      tx.value.replace(/[$,]/g, ''),
+      tx.status
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `investopia_transactions_${new Date().getTime()}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -79,7 +108,13 @@ export const TransactionsPage: React.FC = () => {
             onClick={downloadStatement}
             className="flex items-center gap-2 bg-white/5 text-white px-4 py-2.5 rounded-xl font-bold text-xs hover:bg-white/10 transition-all border border-white/5"
           >
-            <FileText size={14} /> Download Statement
+            <FileText size={14} /> PDF
+          </button>
+          <button 
+            onClick={exportCSV}
+            className="flex items-center gap-2 bg-white/5 text-white px-4 py-2.5 rounded-xl font-bold text-xs hover:bg-white/10 transition-all border border-white/5"
+          >
+            <Download size={14} /> CSV
           </button>
           <button className="flex items-center gap-2 bg-[#D4FF3D] text-black px-4 py-2.5 rounded-xl font-black text-xs hover:bg-[#c2eb38] transition-all shadow-lg shadow-[#D4FF3D]/10 uppercase tracking-widest">
             <Filter size={14} /> Filters

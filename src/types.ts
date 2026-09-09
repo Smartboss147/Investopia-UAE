@@ -87,3 +87,13 @@ export interface TradeOrder {
   status: 'open' | 'filled' | 'cancelled';
   timestamp: number;
 }
+
+export interface PriceAlert {
+  id: string;
+  userId: string;
+  symbol: string;
+  targetPrice: number;
+  condition: 'above' | 'below';
+  isActive: boolean;
+  createdAt: number;
+}
