@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { 
   Zap, 
+  Car,
   Layers, 
   ArrowDownCircle, 
   ArrowRightLeft,
@@ -37,6 +38,7 @@ export const DashboardPage: React.FC = () => {
   };
 
   const quickActions = [
+    { id: 'tesla', label: 'Tesla Shop', icon: <Car size={24} />, color: 'bg-red-500/20 text-red-400', path: '/app/tesla' },
     { id: 'ai', label: 'AI Arbitrage', icon: <Zap size={24} />, color: 'bg-purple-500/20 text-purple-400', path: '/app/trading' },
     { id: 'pool', label: 'Mining Pool', icon: <Layers size={24} />, color: 'bg-orange-500/20 text-orange-400', path: '/app/trading' },
     { id: 'deposit', label: 'Deposit', icon: <ArrowDownCircle size={24} />, color: 'bg-[#D4FF3D]/20 text-[#D4FF3D]', path: '/app/wallets' },

@@ -12,6 +12,46 @@ service cloud.firestore {
     function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
+    function isAdmin() { 
+      return isSignedIn() && 
+             (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+
+    // Tesla Product Validation
+    function isValidTeslaProduct(data) {
+      return data.keys().hasAll(['name', 'slug', 'category', 'price', 'currency', 'availability']) &&
+             data.name is string && data.name.size() <= 200 &&
+             data.slug is string && data.slug.matches('^[a-z0-9-]+$') &&
+             data.category in ['Vehicles', 'Charging', 'Accessories', 'Technology', 'Lifestyle'] &&
+             data.price is number &&
+             data.currency in ['AED', 'USD', 'EUR', 'GBP', 'NGN'] &&
+             data.availability in ['Available', 'Out of Stock', 'Coming Soon'];
+    }
+
+    // Tesla Order Validation
+    function isValidTeslaOrder(data) {
+      return data.keys().hasAll(['userId', 'status', 'currency', 'totalAmount', 'items', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.status == 'pending' &&
+             data.currency is string &&
+             data.totalAmount is number &&
+             data.items is list &&
+             data.createdAt is string;
+    }
+
+    match /tesla_products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /tesla_orders/{orderId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidTeslaOrder(incoming());
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
 
     // User Profile Validation
     function isValidUserProfile(data) {

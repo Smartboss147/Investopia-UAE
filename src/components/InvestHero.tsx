@@ -24,7 +24,7 @@ export const InvestHero: React.FC = () => {
             transition={{ duration: 0.8 }}
           >
             <span className="inline-block text-[#C5A059] font-bold text-sm tracking-[0.3em] uppercase mb-6">
-              Investopia Bridge 2026
+              إنفستوبيا 2026
             </span>
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-black text-white leading-tight mb-8">
               Investing in a <br />
@@ -39,12 +39,17 @@ export const InvestHero: React.FC = () => {
                 Register Now
                 <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
               </Link>
-              <button className="flex items-center gap-4 text-white hover:text-[#C5A059] transition-colors group">
+              <a 
+                href="https://youtu.be/n9Dad6NY0Yw" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-4 text-white hover:text-[#C5A059] transition-colors group"
+              >
                 <div className="w-14 h-14 rounded-full border border-white/20 flex items-center justify-center group-hover:border-[#C5A059] transition-colors">
                   <Play size={20} fill="currentColor" />
                 </div>
                 <span className="font-bold uppercase tracking-widest text-sm">Watch Highlights</span>
-              </button>
+              </a>
             </div>
           </motion.div>
 

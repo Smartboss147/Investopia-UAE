@@ -297,6 +297,13 @@ app.post("/api/admin/setup-first-admin", async (req, res) => {
   try {
     const user = await auth.getUserByEmail(email);
     await auth.setCustomUserClaims(user.uid, { admin: true, role: 'super_admin' });
+    
+    // Also update Firestore profile for consistent UI
+    await db.collection('users').doc(user.uid).update({
+      role: 'super_admin',
+      status: 'active'
+    });
+
     res.json({ message: `Successfully promoted ${email} to super_admin` });
   } catch (error) {
     res.status(500).json({ error: 'Promotion failed' });

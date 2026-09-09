@@ -1,26 +1,20 @@
 import React from 'react';
 import { 
   LayoutDashboard, 
+  Car,
   Wallet, 
   ArrowLeftRight, 
   TrendingUp, 
   History, 
   Settings, 
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ShieldCheck
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Logo } from '../ui/Logo';
 import { cn } from '../../lib/utils';
-
-const menuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/app/dashboard' },
-  { icon: Wallet, label: 'Wallets', path: '/app/wallets' },
-  { icon: ArrowLeftRight, label: 'Transfers', path: '/app/transfers' },
-  { icon: TrendingUp, label: 'Trading', path: '/app/trading' },
-  { icon: History, label: 'Transactions', path: '/app/transactions' },
-  { icon: Settings, label: 'Settings', path: '/app/settings' },
-];
+import { useAuth } from '../AuthProvider';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -36,6 +30,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setMobileOpen
 }) => {
   const location = useLocation();
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'admin';
+
+  const menuItems = [
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/app/dashboard' },
+    { icon: Car, label: 'Tesla Marketplace', path: '/app/tesla' },
+    { icon: Wallet, label: 'Wallets', path: '/app/wallets' },
+    { icon: ArrowLeftRight, label: 'Transfers', path: '/app/transfers' },
+    { icon: TrendingUp, label: 'Trading', path: '/app/trading' },
+    { icon: History, label: 'Transactions', path: '/app/transactions' },
+    { icon: Settings, label: 'Settings', path: '/app/settings' },
+  ];
+
+  if (isAdmin) {
+    menuItems.push({ icon: ShieldCheck, label: 'Admin Panel', path: '/admin' });
+  }
 
   return (
     <>

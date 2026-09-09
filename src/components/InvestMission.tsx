@@ -25,7 +25,7 @@ export const InvestMission: React.FC = () => {
             We believe that tomorrow's economies hold the power to transform lives in ways beyond our imagination. Our mission is to create a dynamic investment hub where global stakeholders, capital, and opportunities come together to drive growth in today's economies and give birth to exciting new ones.
           </motion.p>
           <button className="flex items-center gap-2 text-blue-600 font-bold uppercase tracking-widest text-sm hover:gap-4 transition-all group">
-            Learn more <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+            اعرف المزيد <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
 

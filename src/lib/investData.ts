@@ -36,17 +36,17 @@ export interface Initiative {
 }
 
 export const navItems: NavItem[] = [
-  { label: 'About', path: '/about' },
+  { label: 'من نحن', path: '/about' },
   { label: 'Initiatives', path: '/initiatives' },
   { label: 'Events', path: '/events' },
   { label: 'Knowledge Hub', path: '/knowledge' },
   { label: 'Reports', path: '/reports' },
-  { label: 'Contact', path: '/contact' },
+  { label: 'تواصل معنا', path: '/contact' },
 ];
 
 export const statistics: Statistic[] = [
-  { value: '2,700+', label: 'Participants' },
-  { value: '100+', label: 'Speakers' },
+  { value: '2,700+', label: 'المشاركون' },
+  { value: '100+', label: 'المتحدثون' },
   { value: '15+', label: 'Countries Represented' },
   { value: '40+', label: 'Panel Discussions' },
 ];

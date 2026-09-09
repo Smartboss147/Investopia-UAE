@@ -55,7 +55,7 @@ export const InvestEvents: React.FC = () => {
                     "inline-flex items-center justify-center px-10 py-4 rounded-full font-black text-sm uppercase tracking-widest transition-all",
                     event.category === 'Update' ? "text-blue-600 border-2 border-blue-600 hover:bg-blue-600 hover:text-white" : "bg-blue-600 text-white hover:bg-blue-700"
                   )}>
-                    Learn more
+                    اعرف المزيد
                   </button>
                 </div>
               </div>

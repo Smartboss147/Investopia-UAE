@@ -22,6 +22,7 @@ export const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
   const [isPromoting, setIsPromoting] = useState(false);
 
@@ -34,6 +35,7 @@ export const LoginPage: React.FC = () => {
   const handlePromoteAdmin = async () => {
     setIsPromoting(true);
     setError(null);
+    setSuccess(null);
     try {
       const response = await fetch('/api/admin/setup-first-admin', {
         method: 'POST',
@@ -43,7 +45,7 @@ export const LoginPage: React.FC = () => {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Promotion failed');
       
-      setError('Admin promotion successful! Now sign in to access the dashboard.');
+      setSuccess('Admin promotion successful! Now sign in to access the dashboard.');
       setIsLogin(true);
     } catch (err: any) {
       setError(err.message);
@@ -97,6 +99,7 @@ export const LoginPage: React.FC = () => {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     setError(null);
+    setSuccess(null);
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
@@ -125,12 +128,18 @@ export const LoginPage: React.FC = () => {
       const isOwner = user.email === 'smartcompany112234@gmail.com' || user.email === 'prince.hamad.managementhmdzs@gmail.com';
       if (isOwner) {
         try {
-          await fetch('/api/admin/setup-first-admin', {
+          const res = await fetch('/api/admin/setup-first-admin', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: user.email })
           });
-          console.log('Owner auto-promoted to admin');
+          if (res.ok) {
+            // Force token refresh to include the new admin claim
+            await user.getIdToken(true);
+            setSuccess('Welcome back, Admin! Redirecting to dashboard...');
+            setTimeout(() => navigate('/admin'), 1500);
+            return;
+          }
         } catch (promoteErr) {
           console.error('Auto-promotion failed:', promoteErr);
         }
@@ -166,6 +175,7 @@ export const LoginPage: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    setSuccess(null);
     setResetSent(false);
 
     try {
@@ -298,6 +308,12 @@ export const LoginPage: React.FC = () => {
             {error && (
               <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs font-medium text-center">
                 {error}
+              </div>
+            )}
+
+            {success && (
+              <div className="p-3 bg-[#D4FF3D]/10 border border-[#D4FF3D]/20 rounded-xl text-[#D4FF3D] text-xs font-medium text-center">
+                {success}
               </div>
             )}
 

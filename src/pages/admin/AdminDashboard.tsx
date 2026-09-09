@@ -7,7 +7,8 @@ import {
   Search,
   ChevronRight,
   ShieldAlert,
-  History
+  History,
+  Zap
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
@@ -68,6 +69,12 @@ export const AdminDashboard: React.FC = () => {
             className="flex items-center gap-2 bg-white/5 text-white px-4 py-2 rounded-xl text-xs font-bold border border-white/5 hover:bg-white/10 transition-all"
           >
             <History size={14} /> View Audit Logs
+          </button>
+          <button 
+            onClick={() => navigate('/admin/tesla')}
+            className="flex items-center gap-2 bg-[#D4FF3D] text-black px-4 py-2 rounded-xl text-xs font-bold hover:scale-105 transition-all"
+          >
+            <Zap size={14} /> Tesla Catalog
           </button>
         </div>
       </div>

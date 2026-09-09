@@ -14,6 +14,7 @@ import { TradingPage } from './pages/TradingPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { StakingPage } from './pages/StakingPage';
 import { ComparisonPage } from './pages/ComparisonPage';
+import { TeslaMarketplacePage } from './pages/TeslaMarketplacePage';
 import { ThemeProvider } from './context/ThemeContext';
 import { LoginPage } from './pages/LoginPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -21,6 +22,7 @@ import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminUserDetails } from './pages/admin/AdminUserDetails';
 import { AdminAuditLogs } from './pages/admin/AdminAuditLogs';
+import { AdminTeslaProducts } from './pages/admin/AdminTeslaProducts';
 
 export default function App() {
   return (
@@ -51,6 +53,7 @@ export default function App() {
                     <Route path="staking" element={<StakingPage />} />
                     <Route path="trading" element={<TradingPage />} />
                     <Route path="compare" element={<ComparisonPage />} />
+                    <Route path="tesla" element={<TeslaMarketplacePage />} />
                     <Route path="transfers" element={<TransactionsPage />} /> {/* Stub */}
                     <Route path="settings" element={<ProfilePage />} />
                     <Route path="*" element={<Navigate to="dashboard" replace />} />
@@ -68,6 +71,7 @@ export default function App() {
                   <div className="max-w-7xl mx-auto">
                     <Routes>
                       <Route path="/" element={<AdminDashboard />} />
+                      <Route path="tesla" element={<AdminTeslaProducts />} />
                       <Route path="users/:id" element={<AdminUserDetails />} />
                       <Route path="audit-logs" element={<AdminAuditLogs />} />
                       <Route path="*" element={<Navigate to="/admin" replace />} />

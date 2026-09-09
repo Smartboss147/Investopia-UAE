@@ -15,6 +15,45 @@
       },
       "required": ["uid", "email", "balance", "status"]
     },
+    "TeslaProduct": {
+      "title": "Tesla Product",
+      "description": "Details of a Tesla vehicle or accessory",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 200 },
+        "slug": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "category": { "type": "string", "enum": ["Vehicles", "Charging", "Accessories", "Technology", "Lifestyle"] },
+        "description": { "type": "string", "maxLength": 2000 },
+        "price": { "type": "number" },
+        "currency": { "type": "string", "enum": ["AED", "USD", "EUR", "GBP", "NGN"] },
+        "images": { "type": "array" },
+        "thumbnail": { "type": "string" },
+        "availability": { "type": "string", "enum": ["Available", "Out of Stock", "Coming Soon"] },
+        "featured": { "type": "boolean" },
+        "specifications": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "slug", "category", "price", "currency", "availability"]
+    },
+    "TeslaOrder": {
+      "title": "Tesla Order",
+      "description": "Order or request for a Tesla product",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "processing", "confirmed", "completed", "cancelled"] },
+        "currency": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "items": { "type": "array" },
+        "shippingAddress": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "status", "currency", "totalAmount", "items", "createdAt"]
+    },
     "Wallet": {
       "title": "Crypto Wallet",
       "description": "User's cryptocurrency wallet",
@@ -58,6 +97,14 @@
     "/users/{userId}/transactions/{transactionId}": {
       "schema": "Transaction",
       "description": "User specific transaction history"
+    },
+    "/tesla_products/{productId}": {
+      "schema": "TeslaProduct",
+      "description": "Tesla products and vehicles catalog"
+    },
+    "/tesla_orders/{orderId}": {
+      "schema": "TeslaOrder",
+      "description": "Global orders for Tesla products"
     }
   }
 }
