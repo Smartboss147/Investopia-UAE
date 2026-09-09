@@ -1,12 +1,12 @@
 {
-  "projectId": "prefab-polymer-gj1d7",
-  "appId": "1:509566050075:web:9a38de57c1e0da08f97dbe",
-  "apiKey": "AIzaSyDwG1KjV-LCHcleKJz-vHnpOtG4k5J5c2U",
-  "authDomain": "prefab-polymer-gj1d7.firebaseapp.com",
+  "projectId": "smart-gateway-pay",
+  "appId": "1:176228513204:web:8e1f5ce67c0469fae1eee1",
+  "apiKey": "AIzaSyCraQhxIpQBn33l5fXzDTiRNn1pILd3vEk",
+  "authDomain": "smart-gateway-pay.firebaseapp.com",
   "firestoreDatabaseId": "ai-studio-coinflow-e7f8eab3-e815-4694-a8a3-ea007c1c40e2",
-  "storageBucket": "prefab-polymer-gj1d7.firebasestorage.app",
-  "messagingSenderId": "509566050075",
+  "storageBucket": "smart-gateway-pay.firebasestorage.app",
+  "messagingSenderId": "176228513204",
   "measurementId": "",
-  "oAuthClientId": "509566050075-n1e844h9crlb7o06qedc0shc0sgekjh0.apps.googleusercontent.com",
+  "oAuthClientId": "176228513204-5m11lluf2d97h5r8a7fee69p26c1actg.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }
