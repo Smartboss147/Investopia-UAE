@@ -4,6 +4,7 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
   signInWithPopup,
+  sendPasswordResetEmail,
   AuthError
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
@@ -21,30 +22,52 @@ export const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetSent, setResetSent] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/app/dashboard';
 
-  const handleAuthError = (error: AuthError) => {
-    switch (error.code) {
-      case 'auth/invalid-email':
-        return 'Invalid email address.';
-      case 'auth/user-not-found':
-      case 'auth/wrong-password':
-      case 'auth/invalid-credential':
-        return 'Invalid email or password.';
-      case 'auth/email-already-in-use':
-        return 'This email is already registered. Try logging in instead.';
-      case 'auth/account-exists-with-different-credential':
-        return 'An account already exists with this email. Please sign in using your original method (e.g., Google).';
-      case 'auth/weak-password':
-        return 'Password is too weak.';
-      case 'auth/popup-closed-by-user':
-        return 'Sign-in window closed. Please try again.';
-      default:
-        return 'An unexpected error occurred. Please try again.';
+  const handleAuthError = (err: any) => {
+    console.error('Login/Signup Error:', err);
+    
+    // Handle Firebase Auth Errors
+    if (err.code) {
+      switch (err.code) {
+        case 'auth/invalid-email':
+          return 'Invalid email address format.';
+        case 'auth/user-disabled':
+          return 'This account has been disabled.';
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential':
+        case 'auth/invalid-login-credentials':
+          return 'Invalid email or password. Please check your credentials.';
+        case 'auth/email-already-in-use':
+          return 'This email is already registered. Try logging in instead.';
+        case 'auth/account-exists-with-different-credential':
+          return 'An account already exists with this email via another sign-in method (like Google).';
+        case 'auth/weak-password':
+          return 'Password is too weak. It must be at least 6 characters.';
+        case 'auth/popup-closed-by-user':
+          return 'Sign-in window was closed. Please try again.';
+        case 'auth/too-many-requests':
+          return 'Too many failed attempts. Please try again later or reset your password.';
+        case 'auth/network-request-failed':
+          return 'Network error. Please check your internet connection.';
+        case 'auth/operation-not-allowed':
+          return 'This sign-in method is not enabled. Please contact support.';
+        default:
+          return err.message || 'An unexpected authentication error occurred.';
+      }
     }
+
+    // Handle Firestore or other errors
+    if (err.message && err.message.includes('permission-denied')) {
+      return 'Permission denied while creating your profile. Please contact support.';
+    }
+
+    return err.message || 'An unexpected error occurred. Please try again.';
   };
 
   const handleGoogleSignIn = async () => {
@@ -57,17 +80,41 @@ export const LoginPage: React.FC = () => {
       // Check if profile exists
       const profileDoc = await getDoc(doc(db, 'users', user.uid));
       if (!profileDoc.exists()) {
-        await setDoc(doc(db, 'users', user.uid), {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          balance: 0,
-          status: 'unverified',
-          currency: 'USD',
-          createdAt: Date.now()
-        });
+        try {
+          await setDoc(doc(db, 'users', user.uid), {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            balance: 0,
+            status: 'unverified',
+            currency: 'USD',
+            createdAt: Date.now()
+          });
+        } catch (fsErr: any) {
+          console.error('Firestore Google Profile Error:', fsErr);
+          setError('Logged in via Google, but profile setup failed. Please refresh or contact support.');
+          return;
+        }
       }
       navigate(from, { replace: true });
+    } catch (err: any) {
+      setError(handleAuthError(err));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!email) {
+      setError('Please enter your email address to reset your password.');
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setResetSent(true);
+      setError(null);
     } catch (err: any) {
       setError(handleAuthError(err));
     } finally {
@@ -79,6 +126,7 @@ export const LoginPage: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    setResetSent(false);
 
     try {
       if (isLogin) {
@@ -87,15 +135,22 @@ export const LoginPage: React.FC = () => {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        // Create Firestore profile
-        await setDoc(doc(db, 'users', user.uid), {
-          uid: user.uid,
-          email: user.email,
-          balance: 0,
-          status: 'unverified',
-          currency: 'USD',
-          createdAt: Date.now()
-        });
+        try {
+          // Create Firestore profile
+          await setDoc(doc(db, 'users', user.uid), {
+            uid: user.uid,
+            email: user.email,
+            balance: 0,
+            status: 'unverified',
+            currency: 'USD',
+            createdAt: Date.now()
+          });
+        } catch (fsErr: any) {
+          console.error('Firestore Profile Creation Error:', fsErr);
+          // If Firestore fails, the Auth account is still created.
+          setError('Account created, but profile setup failed. Please try logging in or reset your password if issues persist.');
+          return;
+        }
       }
       navigate(from, { replace: true });
     } catch (err: any) {
@@ -206,9 +261,27 @@ export const LoginPage: React.FC = () => {
               </div>
             )}
 
-            <Button type="submit" className="w-full" isLoading={isLoading}>
-              {isLogin ? 'Sign In' : 'Create Account'}
-            </Button>
+            {resetSent && (
+              <div className="p-3 bg-[#D4FF3D]/10 border border-[#D4FF3D]/20 rounded-xl text-[#D4FF3D] text-xs font-medium text-center">
+                Password reset link sent! Check your email.
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <Button type="submit" className="w-full" isLoading={isLoading}>
+                {isLogin ? 'Sign In' : 'Create Account'}
+              </Button>
+              
+              {isLogin && (
+                <button
+                  type="button"
+                  onClick={handleResetPassword}
+                  className="w-full py-2 text-[10px] text-gray-500 hover:text-white uppercase tracking-widest font-bold transition-colors"
+                >
+                  Forgot Password?
+                </button>
+              )}
+            </div>
           </form>
 
           <div className="mt-8 pt-8 border-t border-white/5 text-center">

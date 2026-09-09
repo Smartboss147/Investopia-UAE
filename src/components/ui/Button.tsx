@@ -1,9 +1,11 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
+import { useHaptics } from '../../hooks/useHaptics';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'ghost' | 'outline';
   isLoading?: boolean;
+  haptic?: boolean | 'light' | 'medium' | 'heavy';
 }
 
 export const Button: React.FC<ButtonProps> = ({ 
@@ -11,8 +13,25 @@ export const Button: React.FC<ButtonProps> = ({
   className, 
   variant = 'primary', 
   isLoading, 
+  haptic = 'light',
+  onClick,
   ...props 
 }) => {
+  const { light, medium, heavy } = useHaptics();
+
+  const handleHaptic = () => {
+    if (!haptic) return;
+    if (haptic === 'light') light();
+    else if (haptic === 'medium') medium();
+    else if (haptic === 'heavy') heavy();
+    else light();
+  };
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    handleHaptic();
+    if (onClick) onClick(e);
+  };
+
   const baseStyles = "inline-flex items-center justify-center gap-2 rounded-xl py-3 px-6 text-sm font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
   
   const variants = {
@@ -25,6 +44,7 @@ export const Button: React.FC<ButtonProps> = ({
     <button 
       className={cn(baseStyles, variants[variant], className)}
       disabled={isLoading || props.disabled}
+      onClick={handleClick}
       {...props}
     >
       {isLoading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />}

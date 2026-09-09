@@ -2,9 +2,10 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Home, BarChart2, Repeat, User, Lock } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { triggerHaptic } from '../../utils/haptic';
+import { useHaptics } from '../../hooks/useHaptics';
 
 export const BottomNav: React.FC = () => {
+  const { light } = useHaptics();
   const navItems = [
     { label: 'Home', path: '/app/dashboard', icon: Home },
     { label: 'Markets', path: '/app/trading', icon: BarChart2 },
@@ -20,7 +21,7 @@ export const BottomNav: React.FC = () => {
           <NavLink
             key={item.path}
             to={item.path}
-            onClick={() => triggerHaptic()}
+            onClick={() => light()}
             className={({ isActive }) => cn(
               "flex flex-col items-center justify-center gap-1 transition-all duration-300 px-4",
               isActive ? "text-[#D4FF3D]" : "text-[#8A93A6] hover:text-white"
