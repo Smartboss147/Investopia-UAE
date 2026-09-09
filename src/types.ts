@@ -12,7 +12,25 @@ export interface Speaker {
 }
 
 export type TransactionStatus = 'pending' | 'completed' | 'failed' | 'cancelled';
-export type TransactionType = 'deposit' | 'withdrawal' | 'transfer' | 'trade' | 'reward';
+export type TransactionType = 'deposit' | 'withdrawal' | 'transfer' | 'trade' | 'reward' | 'adjustment';
+
+export type AdminRole = 'super_admin' | 'admin' | 'support' | 'auditor';
+
+export interface AuditLogEntry {
+  id: string;
+  adminUserId: string;
+  adminEmail: string;
+  targetUserId: string;
+  targetEmail: string;
+  previousBalance: number;
+  adjustmentAmount: number;
+  newBalance: number;
+  adjustmentType: 'credit' | 'debit';
+  reason: string;
+  internalReference: string;
+  timestamp: number;
+  requestId: string;
+}
 
 export interface UserProfile {
   uid: string;

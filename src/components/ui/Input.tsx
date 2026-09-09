@@ -17,7 +17,7 @@ export const Input: React.FC<InputProps> = ({ label, error, className, id, ...pr
       <input
         id={id}
         className={cn(
-          "w-full bg-[#1a1a1a]/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-[#ededed] placeholder:text-gray-600 transition-all duration-200 focus:outline-none focus:border-[#2563EB]/50 focus:ring-1 focus:ring-[#2563EB]/20",
+          "w-full bg-[#1a1a1a]/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-[#ededed] placeholder:text-gray-600 transition-all duration-200 focus:outline-none focus:border-[#D4FF3D]/50 focus:ring-1 focus:ring-[#D4FF3D]/20",
           error && "border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20",
           className
         )}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import { 
   User, 
   Shield, 
@@ -18,12 +19,19 @@ import { cn } from '../lib/utils';
 import { triggerHaptic } from '../utils/haptic';
 
 export const ProfilePage: React.FC = () => {
+  const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
 
   const handleThemeToggle = () => {
     triggerHaptic();
     toggleTheme();
+  };
+
+  const handleSignOut = async () => {
+    triggerHaptic(HapticPatterns.heavy);
+    await signOut();
+    navigate('/');
   };
 
   const sections = [
@@ -134,7 +142,7 @@ export const ProfilePage: React.FC = () => {
         ))}
 
         <button 
-          onClick={() => triggerHaptic(HapticPatterns.heavy)}
+          onClick={handleSignOut}
           className="w-full flex items-center justify-center gap-2 p-5 rounded-[24px] bg-red-500/10 text-red-500 font-black uppercase tracking-widest text-xs border border-red-500/20 active:scale-95 transition-all"
         >
           <LogOut size={18} /> Sign Out

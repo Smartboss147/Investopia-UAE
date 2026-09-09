@@ -14,6 +14,12 @@ import { TradingPage } from './pages/TradingPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { StakingPage } from './pages/StakingPage';
 import { ThemeProvider } from './context/ThemeContext';
+import { LoginPage } from './pages/LoginPage';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
+import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { AdminUserDetails } from './pages/admin/AdminUserDetails';
+import { AdminAuditLogs } from './pages/admin/AdminAuditLogs';
 
 export default function App() {
   return (
@@ -29,22 +35,44 @@ export default function App() {
           <Route path="/reports" element={<KnowledgePage />} />
           <Route path="/contact" element={<AboutPage />} />
 
+          <Route path="/login" element={<LoginPage />} />
+
           {/* Trading App (CoinFlow) */}
           <Route 
             path="/app/*" 
             element={
-              <DashboardLayout>
-                <Routes>
-                  <Route path="dashboard" element={<DashboardPage />} />
-                  <Route path="wallets" element={<WalletsPage />} />
-                  <Route path="transactions" element={<TransactionsPage />} />
-                  <Route path="staking" element={<StakingPage />} />
-                  <Route path="trading" element={<TradingPage />} />
-                  <Route path="transfers" element={<TransactionsPage />} /> {/* Stub */}
-                  <Route path="settings" element={<ProfilePage />} />
-                  <Route path="*" element={<Navigate to="dashboard" replace />} />
-                </Routes>
-              </DashboardLayout>
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <Routes>
+                    <Route path="dashboard" element={<DashboardPage />} />
+                    <Route path="wallets" element={<WalletsPage />} />
+                    <Route path="transactions" element={<TransactionsPage />} />
+                    <Route path="staking" element={<StakingPage />} />
+                    <Route path="trading" element={<TradingPage />} />
+                    <Route path="transfers" element={<TransactionsPage />} /> {/* Stub */}
+                    <Route path="settings" element={<ProfilePage />} />
+                    <Route path="*" element={<Navigate to="dashboard" replace />} />
+                  </Routes>
+                </DashboardLayout>
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/admin/*" 
+            element={
+              <AdminProtectedRoute>
+                <div className="min-h-screen bg-[#0A0F1E] p-4 md:p-8">
+                  <div className="max-w-7xl mx-auto">
+                    <Routes>
+                      <Route path="/" element={<AdminDashboard />} />
+                      <Route path="users/:id" element={<AdminUserDetails />} />
+                      <Route path="audit-logs" element={<AdminAuditLogs />} />
+                      <Route path="*" element={<Navigate to="/admin" replace />} />
+                    </Routes>
+                  </div>
+                </div>
+              </AdminProtectedRoute>
             } 
           />
 
