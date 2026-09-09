@@ -23,10 +23,34 @@ export const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
+  const [isPromoting, setIsPromoting] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/app/dashboard';
+
+  const isOwnerEmail = email === 'smartcompany112234@gmail.com' || email === 'prince.hamad.managementhmdzs@gmail.com';
+
+  const handlePromoteAdmin = async () => {
+    setIsPromoting(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/admin/setup-first-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Promotion failed');
+      
+      setError('Admin promotion successful! Now sign in to access the dashboard.');
+      setIsLogin(true);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsPromoting(false);
+    }
+  };
 
   const handleAuthError = (err: any) => {
     console.error('Login/Signup Error:', err);
@@ -96,6 +120,22 @@ export const LoginPage: React.FC = () => {
           return;
         }
       }
+
+      // Auto-promote if owner email
+      const isOwner = user.email === 'smartcompany112234@gmail.com' || user.email === 'prince.hamad.managementhmdzs@gmail.com';
+      if (isOwner) {
+        try {
+          await fetch('/api/admin/setup-first-admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: user.email })
+          });
+          console.log('Owner auto-promoted to admin');
+        } catch (promoteErr) {
+          console.error('Auto-promotion failed:', promoteErr);
+        }
+      }
+
       navigate(from, { replace: true });
     } catch (err: any) {
       setError(handleAuthError(err));
@@ -264,6 +304,20 @@ export const LoginPage: React.FC = () => {
             {resetSent && (
               <div className="p-3 bg-[#D4FF3D]/10 border border-[#D4FF3D]/20 rounded-xl text-[#D4FF3D] text-xs font-medium text-center">
                 Password reset link sent! Check your email.
+              </div>
+            )}
+
+            {isOwnerEmail && (
+              <div className="p-4 bg-[#D4FF3D]/5 border border-[#D4FF3D]/20 rounded-2xl space-y-3">
+                <p className="text-[10px] text-[#D4FF3D] font-black uppercase tracking-widest text-center">Owner Detected</p>
+                <Button 
+                  type="button" 
+                  onClick={handlePromoteAdmin} 
+                  className="w-full bg-[#D4FF3D] text-black" 
+                  isLoading={isPromoting}
+                >
+                  Initialize Admin Access
+                </Button>
               </div>
             )}
 

