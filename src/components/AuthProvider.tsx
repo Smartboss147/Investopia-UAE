@@ -22,18 +22,18 @@ const AuthContext = createContext<AuthContextType>({
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => auth.currentUser);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(() => !auth.currentUser);
 
   const signOut = async () => {
     await auth.signOut();
   };
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      if (!user) {
+    const unsubscribeAuth = onAuthStateChanged(auth, (authUser) => {
+      setUser(authUser);
+      if (!authUser) {
         setProfile(null);
         setLoading(false);
       }
@@ -42,12 +42,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribeAuth();
   }, []);
 
-  useEffect(() => {
-    if (!user) return;
+  const activeUser = user || auth.currentUser;
 
-    const profileRef = doc(db, 'users', user.uid);
+  useEffect(() => {
+    if (!activeUser) return;
+
+    const profileRef = doc(db, 'users', activeUser.uid);
     const unsubscribeProfile = onSnapshot(profileRef, async (snapshot) => {
-      const isSystemAdmin = isAdminEmail(user.email);
+      const isSystemAdmin = isAdminEmail(activeUser.email);
       if (snapshot.exists()) {
         const data = snapshot.data() as UserProfile;
         if (isSystemAdmin && data.role !== 'super_admin') {
@@ -66,9 +68,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const { setDoc } = await import('firebase/firestore');
           const newProf: UserProfile = {
-            uid: user.uid,
-            email: user.email || '',
-            displayName: user.displayName || user.email?.split('@')[0] || 'User',
+            uid: activeUser.uid,
+            email: activeUser.email || '',
+            displayName: activeUser.displayName || activeUser.email?.split('@')[0] || 'User',
             balance: 0,
             status: 'active',
             currency: 'USD',
@@ -90,10 +92,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => unsubscribeProfile();
-  }, [user]);
+  }, [activeUser?.uid]);
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut }}>
+    <AuthContext.Provider value={{ user: activeUser, profile, loading, signOut }}>
       {children}
     </AuthContext.Provider>
   );

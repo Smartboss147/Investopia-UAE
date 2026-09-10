@@ -4,6 +4,8 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   sendPasswordResetEmail,
   AuthError
 } from 'firebase/auth';
@@ -40,14 +42,68 @@ export const LoginPage: React.FC = () => {
   const location = useLocation();
   const from = location.state?.from?.pathname || '/app/dashboard';
 
-  // If already logged in with admin email, automatically forward to /admin immediately
+  // Automatically process Google redirect result if returning from a mobile redirect
   useEffect(() => {
-    if (!authLoading && currentAuthUser) {
-      if (isAdminEmail(currentAuthUser.email)) {
+    let isMounted = true;
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (!isMounted || !result?.user) return;
+        const user = result.user;
+        const isUserAdmin = isAdminEmail(user.email);
+        try {
+          const profileRef = doc(db, 'users', user.uid);
+          const profileDoc = await getDoc(profileRef);
+          if (!profileDoc.exists()) {
+            const newProf: Record<string, any> = {
+              uid: user.uid,
+              email: user.email || '',
+              displayName: user.displayName || user.email?.split('@')[0] || 'User',
+              balance: 0,
+              status: 'active',
+              currency: 'USD',
+              createdAt: Date.now(),
+            };
+            if (isUserAdmin) {
+              newProf.role = 'super_admin';
+            }
+            await setDoc(profileRef, newProf, { merge: true });
+          } else if (isUserAdmin && profileDoc.data()?.role !== 'super_admin') {
+            await setDoc(profileRef, { role: 'super_admin' }, { merge: true });
+          }
+        } catch (fsErr) {
+          console.warn('Firestore redirect sync notice:', fsErr);
+        }
+
+        if (isUserAdmin) {
+          navigate('/admin', { replace: true });
+        } else {
+          const dest = (from && from !== '/login' && from !== '/admin') ? from : '/app/dashboard';
+          navigate(dest, { replace: true });
+        }
+      })
+      .catch((err: any) => {
+        if (err?.code && err.code !== 'auth/null-user') {
+          console.warn('Redirect auth notice:', err);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [navigate, from]);
+
+  // If already logged in, automatically forward to destination immediately
+  useEffect(() => {
+    const activeUser = currentAuthUser || auth.currentUser;
+    if (!authLoading && activeUser) {
+      if (isAdminEmail(activeUser.email)) {
         navigate('/admin', { replace: true });
+      } else {
+        const dest = (from && from !== '/login' && from !== '/admin') ? from : '/app/dashboard';
+        navigate(dest, { replace: true });
       }
     }
-  }, [currentAuthUser, authLoading, navigate]);
+  }, [currentAuthUser, authLoading, navigate, from]);
 
   const isOwnerEmail = isAdminEmail(email);
 
@@ -147,8 +203,18 @@ export const LoginPage: React.FC = () => {
     setError(null);
     setSuccess(null);
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
+      let user;
+      try {
+        const result = await signInWithPopup(auth, googleProvider);
+        user = result.user;
+      } catch (popupErr: any) {
+        if (popupErr?.code === 'auth/popup-blocked') {
+          console.info('Popup blocked, attempting redirect sign-in...');
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        }
+        throw popupErr;
+      }
 
       if (!user) {
         throw new Error('Google sign-in did not return user credentials. Please try again.');
@@ -197,10 +263,11 @@ export const LoginPage: React.FC = () => {
         return;
       }
 
-      navigate(from, { replace: true });
+      const target = (from && from !== '/login' && from !== '/admin') ? from : '/app/dashboard';
+      navigate(target, { replace: true });
     } catch (err: any) {
       if (err?.code === 'auth/popup-closed-by-user') {
-        // User closed or dismissed the popup window. Reset loading state cleanly without a failure banner.
+        setError('Sign-in window was closed. Please click Continue with Google to try again.');
         setIsLoading(false);
         return;
       }
@@ -283,7 +350,8 @@ export const LoginPage: React.FC = () => {
         return;
       }
 
-      navigate(from, { replace: true });
+      const target = (from && from !== '/login' && from !== '/admin') ? from : '/app/dashboard';
+      navigate(target, { replace: true });
     } catch (err: any) {
       setError(handleAuthError(err));
     } finally {

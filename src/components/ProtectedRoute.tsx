@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { isAdminEmail } from '../utils/admin';
+import { auth } from '../lib/firebase';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -12,7 +13,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
-  if (loading) {
+  const activeUser = user || auth.currentUser;
+
+  if (loading && !activeUser) {
     return (
       <div className="min-h-screen bg-[#0A0F1E] flex items-center justify-center">
         <LoadingSpinner size={48} />
@@ -20,7 +23,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  if (!user) {
+  if (!activeUser) {
     // Redirect them to the /login page, but save the current location they were
     // trying to go to when they were redirected. This allows us to send them
     // back to that page after they login, which is a nicer user experience
@@ -29,7 +32,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   // If this user is an admin, always redirect them directly to the Admin Dashboard
-  if (isAdminEmail(user.email)) {
+  if (isAdminEmail(activeUser.email)) {
     return <Navigate to="/admin" replace />;
   }
 
