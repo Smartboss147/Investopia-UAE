@@ -26,14 +26,13 @@ export const AdminDashboard: React.FC = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const idToken = await user?.getIdToken();
-        const response = await fetch('/api/admin/users', {
-          headers: {
-            'Authorization': `Bearer ${idToken}`
-          }
-        });
-        if (!response.ok) throw new Error('Failed to fetch users');
-        const data = await response.json();
+        const { collection, getDocs, orderBy, query } = await import('firebase/firestore');
+        const { db } = await import('../../lib/firebase');
+        
+        const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        
+        const data = snapshot.docs.map(doc => doc.data() as UserProfile);
         setUsers(data);
       } catch (error) {
         console.error(error);
@@ -41,7 +40,6 @@ export const AdminDashboard: React.FC = () => {
         setLoading(false);
       }
     };
-
     fetchUsers();
   }, [user]);
 

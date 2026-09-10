@@ -24,13 +24,13 @@ export const AdminAuditLogs: React.FC = () => {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const idToken = await user?.getIdToken();
-        const response = await fetch('/api/admin/audit-logs', {
-          headers: { 'Authorization': `Bearer ${idToken}` }
-        });
-        if (!response.ok) throw new Error('Failed to fetch logs');
-        const data = await response.json();
-        setLogs(data);
+        const { collection, getDocs, orderBy, query } = await import('firebase/firestore');
+        const { db } = await import('../../lib/firebase');
+        
+        const q = query(collection(db, 'admin_audit_logs'), orderBy('timestamp', 'desc'));
+        const snapshot = await getDocs(q);
+        
+        setLogs(snapshot.docs.map(doc => doc.data() as any));
       } catch (error) {
         console.error(error);
       } finally {
@@ -38,7 +38,7 @@ export const AdminAuditLogs: React.FC = () => {
       }
     };
     fetchLogs();
-  }, [user]);
+  }, []);
 
   const filteredLogs = logs.filter(log => 
     log.targetEmail.toLowerCase().includes(searchTerm.toLowerCase()) || 

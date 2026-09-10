@@ -53,6 +53,8 @@ export interface TeslaOrder {
   status: OrderStatus;
   currency: string;
   totalAmount: number;
+  shippingFee?: number;
+  clearanceFee?: number;
   items: TeslaOrderItem[];
   customerInfo: {
     fullName: string;
