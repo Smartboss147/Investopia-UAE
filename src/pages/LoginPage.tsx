@@ -199,6 +199,11 @@ export const LoginPage: React.FC = () => {
 
       navigate(from, { replace: true });
     } catch (err: any) {
+      if (err?.code === 'auth/popup-closed-by-user') {
+        // User closed or dismissed the popup window. Reset loading state cleanly without a failure banner.
+        setIsLoading(false);
+        return;
+      }
       setError(handleAuthError(err));
     } finally {
       setIsLoading(false);
@@ -346,6 +351,7 @@ export const LoginPage: React.FC = () => {
 
           <div className="mb-6">
             <Button
+              type="button"
               variant="outline"
               className="w-full border-white/10 hover:bg-white/5"
               onClick={handleGoogleSignIn}
