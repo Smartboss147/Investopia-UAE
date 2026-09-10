@@ -4,7 +4,6 @@
  */
 
 export type TeslaCategory = 'Vehicles' | 'Charging' | 'Accessories' | 'Technology' | 'Lifestyle';
-
 export type ProductAvailability = 'Available' | 'Out of Stock' | 'Coming Soon';
 
 export interface TeslaProduct {
@@ -24,7 +23,7 @@ export interface TeslaProduct {
   updatedAt: string;
 }
 
-export type OrderStatus = 'pending' | 'processing' | 'confirmed' | 'completed' | 'cancelled';
+export type OrderStatus = 'pending' | 'processing' | 'confirmed' | 'shipped' | 'customs' | 'out_for_delivery' | 'delivered' | 'completed' | 'cancelled';
 
 export interface TeslaOrderItem {
   productId: string;
@@ -35,20 +34,46 @@ export interface TeslaOrderItem {
   thumbnail: string;
 }
 
+export interface TrackingMilestone {
+  stage: string;
+  location: string;
+  description: string;
+  date: string;
+  completed: boolean;
+  customsFee?: number;
+  customsCurrency?: string;
+  customsPaid?: boolean;
+}
+
 export interface TeslaOrder {
   id: string;
+  orderNumber: string;
   userId: string;
   userEmail: string;
   status: OrderStatus;
   currency: string;
   totalAmount: number;
   items: TeslaOrderItem[];
-  shippingAddress?: {
+  customerInfo: {
     fullName: string;
-    address: string;
-    city: string;
-    country: string;
+    email: string;
     phone: string;
+  };
+  shippingAddress: {
+    country: string;
+    state: string;
+    city: string;
+    address: string;
+    postalCode: string;
+  };
+  tracking?: {
+    origin: string;
+    destination: string;
+    startDate: string;
+    estimatedDeliveryDate: string;
+    carrier: string;
+    trackingReference: string;
+    milestones: TrackingMilestone[];
   };
   createdAt: string;
   updatedAt: string;

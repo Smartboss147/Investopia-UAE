@@ -24,6 +24,11 @@ import { AdminUserDetails } from './pages/admin/AdminUserDetails';
 import { AdminAuditLogs } from './pages/admin/AdminAuditLogs';
 import { AdminTeslaProducts } from './pages/admin/AdminTeslaProducts';
 
+import { OrdersPage } from './pages/OrdersPage';
+import { OrderTrackingPage } from './pages/OrderTrackingPage';
+
+import { AdminOrdersPage } from './pages/admin/AdminOrdersPage';
+
 export default function App() {
   return (
     <ThemeProvider>
@@ -54,6 +59,8 @@ export default function App() {
                     <Route path="trading" element={<TradingPage />} />
                     <Route path="compare" element={<ComparisonPage />} />
                     <Route path="tesla" element={<TeslaMarketplacePage />} />
+                    <Route path="orders" element={<OrdersPage />} />
+                    <Route path="orders/:id" element={<OrderTrackingPage />} />
                     <Route path="transfers" element={<TransactionsPage />} /> {/* Stub */}
                     <Route path="settings" element={<ProfilePage />} />
                     <Route path="*" element={<Navigate to="dashboard" replace />} />
@@ -72,6 +79,7 @@ export default function App() {
                     <Routes>
                       <Route path="/" element={<AdminDashboard />} />
                       <Route path="tesla" element={<AdminTeslaProducts />} />
+                      <Route path="orders" element={<AdminOrdersPage />} />
                       <Route path="users/:id" element={<AdminUserDetails />} />
                       <Route path="audit-logs" element={<AdminAuditLogs />} />
                       <Route path="*" element={<Navigate to="/admin" replace />} />

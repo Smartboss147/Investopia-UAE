@@ -71,6 +71,12 @@ export const AdminDashboard: React.FC = () => {
             <History size={14} /> View Audit Logs
           </button>
           <button 
+            onClick={() => navigate('/admin/orders')}
+            className="flex items-center gap-2 bg-indigo-500/20 text-indigo-400 px-4 py-2 rounded-xl text-xs font-bold hover:scale-105 transition-all"
+          >
+            <Zap size={14} /> Tesla Orders
+          </button>
+          <button 
             onClick={() => navigate('/admin/tesla')}
             className="flex items-center gap-2 bg-[#D4FF3D] text-black px-4 py-2 rounded-xl text-xs font-bold hover:scale-105 transition-all"
           >

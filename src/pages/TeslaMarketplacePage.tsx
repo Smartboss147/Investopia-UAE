@@ -26,6 +26,8 @@ import { collection, getDocs, query, orderBy, addDoc } from 'firebase/firestore'
 import { cn } from '../lib/utils';
 import { useAuth } from '../components/AuthProvider';
 
+import { CheckoutModal } from '../components/tesla/CheckoutModal';
+
 export const TeslaMarketplacePage: React.FC = () => {
   const [products, setProducts] = useState<TeslaProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,40 +99,14 @@ export const TeslaMarketplacePage: React.FC = () => {
 
   const cartTotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
 
+  const [showCheckout, setShowCheckout] = useState(false);
+
   const { user } = useAuth();
 
-  const handleSubmitOrder = async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const orderData = {
-        userId: user.uid,
-        userEmail: user.email,
-        status: 'pending',
-        currency: cart[0].product.currency,
-        totalAmount: cartTotal,
-        items: cart.map(item => ({
-          productId: item.product.id,
-          name: item.product.name,
-          quantity: item.quantity,
-          unitPrice: item.product.price,
-          currency: item.product.currency,
-          thumbnail: item.product.thumbnail
-        })),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      await addDoc(collection(db, 'tesla_orders'), orderData);
-      setCart([]);
-      setShowCart(false);
-      alert('Order request submitted successfully! Our team will contact you soon.');
-    } catch (error) {
-      console.error('Error submitting order:', error);
-      alert('Failed to submit order request. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+  const handleCheckoutSuccess = () => {
+    setCart([]);
+    setShowCart(false);
+    setShowCheckout(false);
   };
 
   return (
@@ -482,11 +458,11 @@ export const TeslaMarketplacePage: React.FC = () => {
                     <span className="text-white text-2xl font-black">{formatCurrency(cartTotal, cart[0].product.currency)}</span>
                   </div>
                   <button 
-                    onClick={handleSubmitOrder}
+                    onClick={() => setShowCheckout(true)}
                     disabled={loading}
                     className="w-full bg-[#D4FF3D] text-black py-5 rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-[1.02] transition-transform disabled:opacity-50"
                   >
-                    {loading ? 'Processing...' : 'Submit Order Request'}
+                    Proceed to Checkout
                   </button>
                 </div>
               )}
@@ -494,6 +470,13 @@ export const TeslaMarketplacePage: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
+
+      <CheckoutModal 
+        isOpen={showCheckout} 
+        onClose={() => setShowCheckout(false)} 
+        cart={cart} 
+        onSuccess={handleCheckoutSuccess} 
+      />
     </div>
   );
 };
