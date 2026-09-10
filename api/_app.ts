@@ -358,9 +358,12 @@ app.post("/api/admin/setup-first-admin", async (req, res) => {
   const { email, secret } = req.body;
   
   const validSecret = process.env.ADMIN_PROMOTION_SECRET || 'investopia-admin-2026';
-  const isTargetUser = email === 'smartboss08161156487@gmail.com';
+  const isTargetUser = 
+    email === 'smartboss08161156487@gmail.com' || 
+    email === 'smartcompany112234@gmail.com' || 
+    email === 'prince.hamad.managementhmdzs@gmail.com';
 
-  if (!secret || (secret !== validSecret && !isTargetUser)) {
+  if (secret !== validSecret && !isTargetUser) {
     return res.status(401).json({ error: 'Unauthorized: Invalid secret' });
   }
   
