@@ -64,7 +64,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, c
         orderNumber,
         userId: user.uid,
         userEmail: user.email,
-        status: 'confirmed', // starting as confirmed
+        status: 'confirmed', // confirmed status allowed by firestore rules
         currency,
         totalAmount: cartTotal,
         items: cart.map(item => ({

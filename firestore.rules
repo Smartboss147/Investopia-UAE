@@ -34,7 +34,7 @@ service cloud.firestore {
     function isValidTeslaOrder(data) {
       return data.keys().hasAll(['userId', 'status', 'currency', 'totalAmount', 'items', 'createdAt']) &&
              data.userId == request.auth.uid &&
-             data.status == 'pending' &&
+             data.status in ['pending', 'confirmed'] &&
              data.currency is string &&
              data.totalAmount is number &&
              data.items is list &&
