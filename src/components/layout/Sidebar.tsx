@@ -30,8 +30,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setMobileOpen
 }) => {
   const location = useLocation();
-  const { profile } = useAuth();
-  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'admin';
+  const { profile, user } = useAuth();
+  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'admin' || 
+                  user?.email === 'smartboss08161156487@gmail.com' || 
+                  user?.email === 'smartcompany112234@gmail.com' || 
+                  user?.email === 'prince.hamad.managementhmdzs@gmail.com';
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/app/dashboard' },

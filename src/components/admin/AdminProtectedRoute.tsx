@@ -20,7 +20,11 @@ export const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ childr
       }
       try {
         const idTokenResult = await user.getIdTokenResult();
-        setIsAdmin(!!idTokenResult.claims.admin);
+        const isHardcodedAdmin = 
+          user.email === 'smartboss08161156487@gmail.com' || 
+          user.email === 'smartcompany112234@gmail.com' || 
+          user.email === 'prince.hamad.managementhmdzs@gmail.com';
+        setIsAdmin(!!idTokenResult.claims.admin || isHardcodedAdmin);
       } catch (error) {
         console.error('Error checking admin status:', error);
         setIsAdmin(false);
