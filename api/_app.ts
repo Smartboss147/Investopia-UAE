@@ -25,16 +25,47 @@ if (!getApps().length) {
   let serviceAccount: any = undefined;
 
   try {
-    if (process.env.FIREBASE_SERVICE_ACCOUNT_B64) {
-      const decoded = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, 'base64').toString('utf8');
-      serviceAccount = JSON.parse(decoded);
-    } else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-      // Fallback for environments where the raw JSON env var still works correctly
-      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    let rawEnv = process.env.FIREBASE_SERVICE_ACCOUNT_B64 
+      ? Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, 'base64').toString('utf8')
+      : process.env.FIREBASE_SERVICE_ACCOUNT;
+
+    if (rawEnv) {
+      rawEnv = rawEnv.trim();
+      if ((rawEnv.startsWith('"') && rawEnv.endsWith('"')) || (rawEnv.startsWith("'") && rawEnv.endsWith("'"))) {
+        try {
+          rawEnv = JSON.parse(rawEnv);
+        } catch (e) {
+          rawEnv = rawEnv.slice(1, -1).trim();
+        }
+      }
+      serviceAccount = typeof rawEnv === 'string' ? JSON.parse(rawEnv) : rawEnv;
     }
 
     if (serviceAccount && serviceAccount.private_key) {
-      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+      let cleaned = serviceAccount.private_key;
+      if (typeof cleaned === 'string') {
+        // Remove quotes if present
+        if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+          cleaned = cleaned.slice(1, -1);
+        }
+        
+        // Remove all whitespace and literal newline characters to get a continuous string
+        cleaned = cleaned.replace(/\\n/g, '').replace(/\s+/g, '');
+        
+        const header = "-----BEGIN PRIVATE KEY-----";
+        const footer = "-----END PRIVATE KEY-----";
+        
+        if (cleaned.includes("BEGINPRIVATEKEY") || cleaned.includes("BEGINRSAPRIVATEKEY")) {
+          // Extract just the base64 characters
+          const b64 = cleaned
+            .replace(/.*?BEGIN(?:RSA)?PRIVATEKEY-+(.*)-+END(?:RSA)?PRIVATEKEY.*/i, '$1')
+            .replace(/[^A-Za-z0-9+/=]/g, '');
+          
+          // Reconstruct properly into 64-character lines
+          const lines = b64.match(/.{1,64}/g) || [];
+          serviceAccount.private_key = `${header}\n${lines.join('\n')}\n${footer}\n`;
+        }
+      }
     }
   } catch (err) {
     console.error("Error parsing service account credentials:", err);
@@ -334,18 +365,36 @@ app.post("/api/admin/setup-first-admin", async (req, res) => {
   }
   
   try {
-    const user = await auth.getUserByEmail(email);
+    let user;
+    try {
+      user = await auth.getUserByEmail(email);
+    } catch (e: any) {
+      if (e.code === 'auth/user-not-found') {
+        user = await auth.createUser({
+          email,
+          password: 'Password123!',
+          emailVerified: true
+        });
+      } else {
+        throw e;
+      }
+    }
+
     await auth.setCustomUserClaims(user.uid, { admin: true, role: 'super_admin' });
     
     // Also update Firestore profile for consistent UI
-    await db.collection('users').doc(user.uid).update({
+    await db.collection('users').doc(user.uid).set({
+      uid: user.uid,
+      email: user.email,
       role: 'super_admin',
-      status: 'active'
-    });
+      status: 'active',
+      createdAt: new Date().toISOString()
+    }, { merge: true });
 
     res.json({ message: `Successfully promoted ${email} to super_admin` });
-  } catch (error) {
-    res.status(500).json({ error: 'Promotion failed' });
+  } catch (error: any) {
+    console.error("Promotion failed:", error);
+    res.status(500).json({ error: error.message || 'Promotion failed' });
   }
 });
 
