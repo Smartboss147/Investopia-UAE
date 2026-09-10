@@ -178,7 +178,12 @@ export const AdminTeslaProducts: React.FC = () => {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-xl bg-black/40 overflow-hidden flex-shrink-0">
-                        <img src={product.thumbnail} alt="" className="w-full h-full object-cover" />
+                        <img 
+                          src={product.thumbnail} 
+                          alt="" 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
                       </div>
                       <div>
                         <p className="text-white font-bold text-sm">{product.name}</p>
@@ -195,14 +200,26 @@ export const AdminTeslaProducts: React.FC = () => {
                     {formatCurrency(product.price, product.currency)}
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
+                    <button 
+                      onClick={async () => {
+                        const newStatus: ProductAvailability = 
+                          product.availability === 'Available' ? 'Out of Stock' : 
+                          product.availability === 'Out of Stock' ? 'Coming Soon' : 'Available';
+                        await updateDoc(doc(db, 'tesla_products', product.id), {
+                          availability: newStatus,
+                          updatedAt: new Date().toISOString()
+                        });
+                        fetchProducts();
+                      }}
+                      className="flex items-center gap-2 group/status"
+                    >
                       <div className={cn(
                         "w-2 h-2 rounded-full",
                         product.availability === 'Available' ? "bg-[#D4FF3D]" : 
                         product.availability === 'Coming Soon' ? "bg-blue-400" : "bg-red-400"
                       )} />
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{product.availability}</span>
-                    </div>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest group-hover/status:text-white transition-colors">{product.availability}</span>
+                    </button>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
@@ -309,7 +326,12 @@ export const AdminTeslaProducts: React.FC = () => {
                   />
                   {editingProduct.thumbnail && (
                     <div className="w-14 h-14 rounded-2xl bg-black/40 overflow-hidden flex-shrink-0 border border-white/10">
-                      <img src={editingProduct.thumbnail} alt="" className="w-full h-full object-cover" />
+                      <img 
+                        src={editingProduct.thumbnail} 
+                        alt="" 
+                        className="w-full h-full object-cover" 
+                        referrerPolicy="no-referrer"
+                      />
                     </div>
                   )}
                 </div>

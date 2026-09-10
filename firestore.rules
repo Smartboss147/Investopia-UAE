@@ -14,6 +14,7 @@ service cloud.firestore {
     function existing() { return resource.data; }
     function isAdmin() { 
       return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
     }
@@ -22,7 +23,7 @@ service cloud.firestore {
     function isValidTeslaProduct(data) {
       return data.keys().hasAll(['name', 'slug', 'category', 'price', 'currency', 'availability']) &&
              data.name is string && data.name.size() <= 200 &&
-             data.slug is string && data.slug.matches('^[a-z0-9-]+$') &&
+             data.slug is string &&
              data.category in ['Vehicles', 'Charging', 'Accessories', 'Technology', 'Lifestyle'] &&
              data.price is number &&
              data.currency in ['AED', 'USD', 'EUR', 'GBP', 'NGN'] &&
@@ -56,12 +57,13 @@ service cloud.firestore {
     // User Profile Validation
     function isValidUserProfile(data) {
       return data.keys().hasAll(['uid', 'email', 'balance', 'status', 'currency', 'createdAt']) &&
-             data.keys().size() <= 7 &&
+             data.keys().size() <= 8 &&
              data.uid == request.auth.uid &&
              data.email is string &&
              data.balance == 0 &&
              data.status == 'unverified' &&
-             data.createdAt is number;
+             data.createdAt is number &&
+             (!('displayName' in data) || data.displayName == null || data.displayName is string);
     }
 
     match /users/{userId} {

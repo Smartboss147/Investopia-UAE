@@ -82,14 +82,64 @@ export const DashboardPage: React.FC = () => {
       {isLocked && <BiometricOverlay onUnlock={() => setIsLocked(false)} />}
       
       <div className="space-y-8">
-        {/* Balance Section */}
-        <BalanceCard 
-          balance={profile?.balance || 0} 
-          currency={profile?.currency || 'USD'} 
-          todayPnL={{ value: 1240.50, percentage: 2.45 }}
-          onDeposit={() => navigate('/app/wallets')}
-          onWithdraw={() => navigate('/app/transactions')}
-        />
+        {/* Balance & Tesla Promo Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <BalanceCard 
+              balance={profile?.balance || 0} 
+              currency={profile?.currency || 'USD'} 
+              todayPnL={{ value: 1240.50, percentage: 2.45 }}
+              onDeposit={() => navigate('/app/wallets')}
+              onWithdraw={() => navigate('/app/transactions')}
+            />
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-1 gap-4 lg:gap-6">
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              onClick={() => navigate('/app/tesla')}
+              className="bg-[#131A2E] rounded-[24px] overflow-hidden border border-white/5 relative group cursor-pointer h-full min-h-[140px]"
+            >
+              <img 
+                src="https://images.unsplash.com/photo-1536700503339-1e4b06520771?auto=format&fit=crop&q=80&w=800" 
+                alt="Tesla Model S" 
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                referrerPolicy="no-referrer"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0A0F1E] via-transparent to-transparent flex flex-col justify-end p-5">
+                <span className="text-[#D4FF3D] text-[8px] font-black uppercase tracking-[0.2em] mb-1">Premium Sedan</span>
+                <h4 className="text-white text-xs font-black uppercase tracking-widest">Model S</h4>
+              </div>
+              <div className="absolute top-4 right-4 bg-[#D4FF3D] text-black p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                <Car size={14} />
+              </div>
+            </motion.div>
+
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 }}
+              onClick={() => navigate('/app/tesla')}
+              className="bg-[#131A2E] rounded-[24px] overflow-hidden border border-white/5 relative group cursor-pointer h-full min-h-[140px]"
+            >
+              <img 
+                src="https://images.unsplash.com/photo-1662010021854-e67c538ea7a9?auto=format&fit=crop&q=80&w=800" 
+                alt="Tesla Cybertruck" 
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                referrerPolicy="no-referrer"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0A0F1E] via-transparent to-transparent flex flex-col justify-end p-5">
+                <span className="text-[#D4FF3D] text-[8px] font-black uppercase tracking-[0.2em] mb-1">Futuristic Utility</span>
+                <h4 className="text-white text-xs font-black uppercase tracking-widest">Cybertruck</h4>
+              </div>
+              <div className="absolute top-4 right-4 bg-[#D4FF3D] text-black p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                <Zap size={14} />
+              </div>
+            </motion.div>
+          </div>
+        </div>
 
         {/* Allocation Chart */}
         <AllocationChart />

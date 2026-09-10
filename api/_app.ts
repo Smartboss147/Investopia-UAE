@@ -311,40 +311,78 @@ app.post("/api/admin/setup-first-admin", async (req, res) => {
 });
 
 // News API
-let newsCache: { data: any; timestamp: number } | null = null;
-const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 const FALLBACK_NEWS = [
-  { title: "Bitcoin Consolidation Continues", summary: "BTC remains in a tight range as traders await further macro indicators.", sentiment: "neutral" },
-  { title: "Ethereum Layer-2 Growth Surges", summary: "Total value locked in Ethereum L2 networks reaches new all-time highs.", sentiment: "positive" },
-  { title: "Solana Network Upgrade Successful", summary: "The latest mainnet update brings improved throughput and lower latency.", sentiment: "positive" },
-  { title: "Regulatory Uncertainty Persists", summary: "Global regulators continue to debate the classification of stablecoins.", sentiment: "neutral" },
-  { title: "Market Volatility Rises", summary: "Increased trading volume leads to significant price fluctuations across major pairs.", sentiment: "negative" }
+  { title: "Market Consolidation Continues", summary: "Bitcoin and major altcoins trade within a narrow range as investors anticipate macro shifts.", sentiment: "neutral" },
+  { title: "Institutional Crypto Interest Rising", summary: "Recent reports show a significant increase in digital asset allocation among family offices.", sentiment: "positive" },
+  { title: "Ethereum Network Activity Steady", summary: "On-chain data indicates consistent growth in decentralized finance protocol usage.", sentiment: "positive" },
+  { title: "Regulatory Frameworks Evolve", summary: "Global authorities are working on clearer guidelines for digital asset service providers.", sentiment: "neutral" },
+  { title: "Tech Sector Resilience", summary: "Cryptocurrency markets show resilience despite fluctuations in the broader technology sector.", sentiment: "positive" }
 ];
 
 app.get("/api/news", async (req, res) => {
-  const now = Date.now();
-  if (newsCache && (now - newsCache.timestamp < CACHE_TTL)) {
-    return res.json(newsCache.data);
-  }
+  const CACHE_TTL = 4 * 60 * 60 * 1000; // 4 hours for persistent cache
+  const cacheRef = db.collection('system_config').doc('news_cache');
 
   try {
+    // 1. Try to get from Firestore cache
+    const cacheDoc = await cacheRef.get();
+    const now = Date.now();
+
+    if (cacheDoc.exists) {
+      const cacheData = cacheDoc.data();
+      if (cacheData && (now - cacheData.timestamp < CACHE_TTL)) {
+        return res.json(cacheData.data);
+      }
+    }
+
+    // 2. If no cache or expired, fetch from Gemini
+    console.log("Fetching fresh news from Gemini...");
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-1.5-flash", // Using a stable model name
       contents: "Provide the 5 latest and most significant cryptocurrency market news headlines from today. Return a JSON array of objects with keys: 'title', 'summary' (one sentence), 'sentiment' (positive, negative, or neutral).",
       config: {
         tools: [{ googleSearch: {} }],
         responseMimeType: "application/json"
       }
     });
-    const newsData = JSON.parse(response.text);
-    newsCache = { data: newsData, timestamp: now };
+
+    let text = response.text.trim();
+    if (text.startsWith('```')) {
+      text = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+    }
+    
+    const newsData = JSON.parse(text);
+    
+    // 3. Update Firestore cache
+    await cacheRef.set({
+      data: newsData,
+      timestamp: now,
+      updatedAt: new Date().toISOString()
+    });
+
     res.json(newsData);
   } catch (error: any) {
     console.error("Error fetching news from Gemini:", error);
-    if (error?.status === 429 || error?.code === 429) {
-      return res.json(FALLBACK_NEWS);
+    
+    const errCode = error?.status || error?.code || error?.error?.code;
+    const errMessage = error?.message || (error?.error?.message);
+    console.error(`Gemini API Error Detail - Code: ${errCode}, Message: ${errMessage}`);
+
+    // 4. Return stale cache if available, otherwise fallback
+    try {
+      const cacheDoc = await cacheRef.get();
+      if (cacheDoc.exists) {
+        const cacheData = cacheDoc.data();
+        if (cacheData?.data) {
+          console.log("Serving stale news from cache due to API error");
+          return res.json(cacheData.data);
+        }
+      }
+    } catch (cacheError) {
+      console.error("Failed to fetch stale cache:", cacheError);
     }
-    res.json(newsCache?.data || FALLBACK_NEWS);
+    
+    res.json(FALLBACK_NEWS);
   }
 });
 

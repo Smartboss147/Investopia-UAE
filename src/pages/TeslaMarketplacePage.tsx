@@ -143,6 +143,8 @@ export const TeslaMarketplacePage: React.FC = () => {
               src={featuredProduct.images[0]} 
               alt={featuredProduct.name}
               className="w-full h-full object-cover"
+              loading="lazy"
+              referrerPolicy="no-referrer"
             />
             <div className="absolute inset-0 bg-gradient-to-r from-[#0A0F1E] via-[#0A0F1E]/80 to-transparent" />
           </div>
@@ -232,6 +234,8 @@ export const TeslaMarketplacePage: React.FC = () => {
                     src={product.thumbnail} 
                     alt={product.name}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
                   />
                   <div className="absolute top-6 right-6">
                     <span className={cn(
@@ -330,6 +334,7 @@ export const TeslaMarketplacePage: React.FC = () => {
                   src={selectedProduct.images[0]} 
                   alt={selectedProduct.name}
                   className="max-w-full max-h-full object-contain"
+                  referrerPolicy="no-referrer"
                 />
               </div>
 
@@ -427,7 +432,12 @@ export const TeslaMarketplacePage: React.FC = () => {
                   cart.map((item) => (
                     <div key={item.product.id} className="flex gap-4 group">
                       <div className="w-20 h-20 rounded-2xl overflow-hidden bg-black/40 flex-shrink-0">
-                        <img src={item.product.thumbnail} alt={item.product.name} className="w-full h-full object-cover" />
+                        <img 
+                          src={item.product.thumbnail} 
+                          alt={item.product.name} 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
                       </div>
                       <div className="flex-grow">
                         <div className="flex justify-between items-start">
