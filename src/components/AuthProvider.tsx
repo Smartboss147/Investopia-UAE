@@ -72,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             balance: 0,
             status: 'active',
             currency: 'USD',
-            role: isSystemAdmin ? 'super_admin' : undefined,
+            ...(isSystemAdmin ? { role: 'super_admin' } : {}),
             createdAt: Date.now()
           };
           await setDoc(profileRef, newProf, { merge: true });

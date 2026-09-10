@@ -2,6 +2,7 @@
   "buildCommand": "vite build",
   "outputDirectory": "dist",
   "rewrites": [
+    { "source": "/__/auth/(.*)", "destination": "https://smart-gateway-pay.firebaseapp.com/__/auth/$1" },
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]

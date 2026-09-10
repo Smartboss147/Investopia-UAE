@@ -96,6 +96,12 @@ export const LoginPage: React.FC = () => {
           return 'Password is too weak. It must be at least 6 characters.';
         case 'auth/popup-closed-by-user':
           return 'Sign-in window was closed. Please try again.';
+        case 'auth/popup-blocked':
+          return 'Sign-in pop-up was blocked by your browser. Please allow pop-ups for this site and try again.';
+        case 'auth/cancelled-popup-request':
+          return 'Sign-in was interrupted. Please click Continue with Google again.';
+        case 'auth/unauthorized-domain':
+          return 'This domain is not authorized for Google Sign-In in Firebase Console.';
         case 'auth/too-many-requests':
           return 'Too many failed attempts. Please try again later or reset your password.';
         case 'auth/network-request-failed':
@@ -144,29 +150,49 @@ export const LoginPage: React.FC = () => {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
-      // Check if profile exists
-      const profileDoc = await getDoc(doc(db, 'users', user.uid));
-      if (!profileDoc.exists()) {
-        try {
-          await setDoc(doc(db, 'users', user.uid), {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName,
-            balance: 0,
-            status: 'unverified',
-            currency: 'USD',
-            createdAt: Date.now()
-          });
-        } catch (fsErr: any) {
-          console.error('Firestore Google Profile Error:', fsErr);
-          setError('Logged in via Google, but profile setup failed. Please refresh or contact support.');
-          setIsLoading(false);
-          return;
-        }
+      if (!user) {
+        throw new Error('Google sign-in did not return user credentials. Please try again.');
       }
 
-      // If admin, navigate to admin dashboard immediately
-      if (isAdminEmail(user.email)) {
+      const isUserAdmin = isAdminEmail(user.email);
+
+      // Gracefully ensure user profile exists in Firestore
+      try {
+        const profileRef = doc(db, 'users', user.uid);
+        const profileDoc = await getDoc(profileRef);
+        if (!profileDoc.exists()) {
+          const newProf: Record<string, any> = {
+            uid: user.uid,
+            email: user.email || '',
+            displayName: user.displayName || user.email?.split('@')[0] || 'User',
+            balance: 0,
+            status: 'active',
+            currency: 'USD',
+            createdAt: Date.now(),
+          };
+          if (isUserAdmin) {
+            newProf.role = 'super_admin';
+          }
+          await setDoc(profileRef, newProf, { merge: true });
+        } else if (isUserAdmin && profileDoc.data()?.role !== 'super_admin') {
+          await setDoc(profileRef, { role: 'super_admin' }, { merge: true });
+        }
+      } catch (fsErr: any) {
+        console.warn('Firestore Google Profile Notice:', fsErr);
+        // Do not block navigation if AuthProvider or server sync handles it
+      }
+
+      // If admin, notify backend and navigate to admin dashboard immediately
+      if (isUserAdmin) {
+        try {
+          fetch('/api/admin/setup-first-admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: user.email })
+          }).catch(() => {});
+        } catch {
+          // non-blocking
+        }
         navigate('/admin', { replace: true });
         return;
       }

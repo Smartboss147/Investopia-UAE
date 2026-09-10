@@ -12,6 +12,9 @@ export const db = initializeFirestore(app, {
 
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
 
 // Removed immediate testConnection to prevent race conditions during startup
 export enum OperationType {
