@@ -74,7 +74,7 @@
       "type": "object",
       "properties": {
         "userId": { "type": "string" },
-        "type": { "type": "string", "enum": ["deposit", "withdrawal", "transfer", "trade", "reward"] },
+        "type": { "type": "string", "enum": ["deposit", "withdrawal", "transfer", "trade", "reward", "adjustment"] },
         "amount": { "type": "number" },
         "coin": { "type": "string" },
         "status": { "type": "string", "enum": ["pending", "completed", "failed", "cancelled"] },
@@ -97,6 +97,9 @@
     "/users/{userId}/transactions/{transactionId}": {
       "schema": "Transaction",
       "description": "User specific transaction history"
+    },
+    "/admin_audit_logs/{logId}": {
+      "description": "Administrative actions audit logs"
     },
     "/tesla_products/{productId}": {
       "schema": "TeslaProduct",

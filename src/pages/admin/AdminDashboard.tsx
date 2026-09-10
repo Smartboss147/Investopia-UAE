@@ -233,34 +233,42 @@ export const AdminDashboard: React.FC = () => {
 
       // Add transaction
       const txId = `tx_${Date.now()}`;
-      await setDoc(doc(db, 'users', quickUser.uid, 'transactions', txId), {
-        id: txId,
-        userId: quickUser.uid,
-        type: 'adjustment',
-        amount: amountNum,
-        coin: 'USD',
-        status: 'completed',
-        timestamp: Date.now(),
-        description: `Admin quick adjustment: ${quickReason}`
-      });
+      try {
+        await setDoc(doc(db, 'users', quickUser.uid, 'transactions', txId), {
+          id: txId,
+          userId: quickUser.uid,
+          type: 'adjustment',
+          amount: amountNum,
+          coin: quickUser.currency || 'USD',
+          status: 'completed',
+          timestamp: Date.now(),
+          description: `Admin quick adjustment: ${quickReason}`
+        });
+      } catch (txErr) {
+        console.warn('Could not record quick transaction:', txErr);
+      }
 
       // Add audit log
       const logId = `adj_${Date.now()}`;
-      await setDoc(doc(db, 'admin_audit_logs', logId), {
-        id: logId,
-        adminUserId: user?.uid || 'admin',
-        adminEmail: user?.email || 'smartboss08161156487@gmail.com',
-        targetUserId: quickUser.uid,
-        targetEmail: quickUser.email,
-        previousBalance: currentBalance,
-        adjustmentAmount: amountNum,
-        newBalance: newBalance,
-        adjustmentType: quickType,
-        reason: quickReason,
-        internalReference: 'QUICK_TERMINAL',
-        timestamp: Date.now(),
-        requestId: logId
-      });
+      try {
+        await setDoc(doc(db, 'admin_audit_logs', logId), {
+          id: logId,
+          adminUserId: user?.uid || 'admin',
+          adminEmail: user?.email || 'smartcompany112234@gmail.com',
+          targetUserId: quickUser.uid,
+          targetEmail: quickUser.email,
+          previousBalance: currentBalance,
+          adjustmentAmount: amountNum,
+          newBalance: newBalance,
+          adjustmentType: quickType,
+          reason: quickReason,
+          internalReference: 'QUICK_TERMINAL',
+          timestamp: Date.now(),
+          requestId: logId
+        });
+      } catch (logErr) {
+        console.warn('Could not record quick audit log:', logErr);
+      }
 
       setQuickUser(null);
       setQuickAmount('');

@@ -12,9 +12,19 @@ service cloud.firestore {
     function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
+
     function isAdmin() { 
       return isSignedIn() && (
-        request.auth.token.email in ['smartboss08161156487@gmail.com'] ||
+        (request.auth.token.email in [
+          'smartboss08161156487@gmail.com',
+          'smartcompany112234@gmail.com',
+          'prince.hamad.managementhmdzs@gmail.com'
+        ]) ||
+        ('email' in request.auth.token && request.auth.token.email.lower() in [
+          'smartboss08161156487@gmail.com',
+          'smartcompany112234@gmail.com',
+          'prince.hamad.managementhmdzs@gmail.com'
+        ]) ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
          (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'))
@@ -50,10 +60,10 @@ service cloud.firestore {
 
     match /tesla_orders/{orderId} {
       allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow create: if isSignedIn() && isValidTeslaOrder(incoming());
       allow update: if isAdmin();
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     // User Profile Validation
@@ -78,7 +88,7 @@ service cloud.firestore {
                     incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'currency']));
       allow delete: if isAdmin();
       
-      // Wallets subcollection - Server-only balance updates
+      // Wallets subcollection
       match /wallets/{walletId} {
         function isValidWallet(data) {
           return data.keys().hasAll(['userId', 'coin', 'symbol', 'balance', 'address']) &&
@@ -89,10 +99,9 @@ service cloud.firestore {
                  data.address is string && data.address.matches('^[a-zA-Z0-9]+$');
         }
 
-        allow list, get: if isOwner(userId) || isAdmin();
-        // Clients can create wallets with 0 balance, but balance updates must be server-side
-        allow create: if isOwner(userId) && isValidWallet(incoming()) && incoming().balance == 0;
-        allow update: if isAdmin(); // Lock down balance updates to Admin SDK
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isAdmin() || (isOwner(userId) && isValidWallet(incoming()) && incoming().balance == 0);
+        allow update: if isAdmin();
         allow delete: if isOwner(userId) || isAdmin();
       }
 
@@ -101,21 +110,19 @@ service cloud.firestore {
         function isValidTransaction(data) {
           return data.keys().hasAll(['userId', 'type', 'amount', 'coin', 'status', 'timestamp']) &&
                  data.userId == request.auth.uid &&
-                 data.type in ['deposit', 'withdrawal', 'transfer', 'trade', 'reward'] &&
+                 data.type in ['deposit', 'withdrawal', 'transfer', 'trade', 'reward', 'adjustment'] &&
                  data.amount is number &&
-                 data.status == 'pending' &&
+                 data.status in ['pending', 'completed', 'cancelled', 'failed'] &&
                  data.timestamp is number;
         }
 
-        allow list: if isOwner(userId);
-        allow get: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidTransaction(incoming());
-        
-        // Clients can only cancel pending transactions
-        allow update: if isOwner(userId) && 
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isAdmin() || (isOwner(userId) && isValidTransaction(incoming()));
+        allow update: if isAdmin() || (isOwner(userId) && 
                       existing().status == 'pending' &&
                       incoming().status == 'cancelled' &&
-                      incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+                      incoming().diff(existing()).affectedKeys().hasOnly(['status']));
+        allow delete: if isAdmin();
       }
 
       // Price Alerts subcollection
@@ -130,19 +137,15 @@ service cloud.firestore {
                  data.createdAt is number;
         }
 
-        allow list: if isOwner(userId);
-        allow get: if isOwner(userId);
+        allow read: if isOwner(userId) || isAdmin();
         allow create: if isOwner(userId) && isValidAlert(incoming());
         allow update: if isOwner(userId) && isValidAlert(incoming());
-        allow delete: if isOwner(userId);
+        allow delete: if isOwner(userId) || isAdmin();
       }
     }
+
     match /admin_audit_logs/{logId} {
-      allow read: if isAdmin();
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
   }
 }
-
-// Append this before the last bracket
-// Oops, let me just replace it

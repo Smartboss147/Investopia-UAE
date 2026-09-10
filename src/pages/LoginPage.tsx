@@ -193,6 +193,7 @@ export const LoginPage: React.FC = () => {
         const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
         
         // Ensure profile exists in Firestore so admin dashboard sees them
+        const isUserAdmin = isAdminEmail(cred.user.email) || isAdminEmail(cleanEmail);
         try {
           const userDoc = await getDoc(doc(db, 'users', cred.user.uid));
           if (!userDoc.exists()) {
@@ -203,20 +204,26 @@ export const LoginPage: React.FC = () => {
               balance: 0,
               status: 'active',
               currency: 'USD',
+              role: isUserAdmin ? 'super_admin' : undefined,
               createdAt: Date.now()
+            }, { merge: true });
+          } else if (isUserAdmin && userDoc.data()?.role !== 'super_admin') {
+            await setDoc(doc(db, 'users', cred.user.uid), {
+              role: 'super_admin'
             }, { merge: true });
           }
         } catch (profErr) {
           console.warn('Profile sync warning on login:', profErr);
         }
 
-        if (isAdminEmail(cred.user.email) || isAdminEmail(cleanEmail)) {
+        if (isUserAdmin) {
           navigate('/admin', { replace: true });
           return;
         }
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
         const user = userCredential.user;
+        const isNewUserAdmin = isAdminEmail(user.email) || isAdminEmail(cleanEmail);
 
         try {
           // Create Firestore profile
@@ -227,13 +234,14 @@ export const LoginPage: React.FC = () => {
             balance: 0,
             status: 'active',
             currency: 'USD',
+            role: isNewUserAdmin ? 'super_admin' : undefined,
             createdAt: Date.now()
           }, { merge: true });
         } catch (fsErr: any) {
           console.error('Firestore Profile Creation Error:', fsErr);
         }
 
-        if (isAdminEmail(user.email) || isAdminEmail(cleanEmail)) {
+        if (isNewUserAdmin) {
           navigate('/admin', { replace: true });
           return;
         }

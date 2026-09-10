@@ -41,6 +41,7 @@ export interface UserProfile {
   balance: number;
   currency: string;
   status: 'active' | 'suspended' | 'unverified';
+  role?: AdminRole | string;
   createdAt: number;
 }
 

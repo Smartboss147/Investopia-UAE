@@ -3,6 +3,7 @@ import { User, onAuthStateChanged } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { UserProfile } from '../types';
+import { isAdminEmail } from '../utils/admin';
 
 interface AuthContextType {
   user: User | null;
@@ -46,8 +47,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const profileRef = doc(db, 'users', user.uid);
     const unsubscribeProfile = onSnapshot(profileRef, async (snapshot) => {
+      const isSystemAdmin = isAdminEmail(user.email);
       if (snapshot.exists()) {
-        setProfile(snapshot.data() as UserProfile);
+        const data = snapshot.data() as UserProfile;
+        if (isSystemAdmin && data.role !== 'super_admin') {
+          try {
+            const { setDoc } = await import('firebase/firestore');
+            await setDoc(profileRef, { role: 'super_admin' }, { merge: true });
+            data.role = 'super_admin';
+          } catch (err) {
+            console.warn('Could not update admin role:', err);
+          }
+        }
+        setProfile(data);
         setLoading(false);
       } else {
         // Auto-provision profile if document does not exist yet
@@ -60,6 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             balance: 0,
             status: 'active',
             currency: 'USD',
+            role: isSystemAdmin ? 'super_admin' : undefined,
             createdAt: Date.now()
           };
           await setDoc(profileRef, newProf, { merge: true });

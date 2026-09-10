@@ -128,29 +128,37 @@ export const AdminUserDetails: React.FC = () => {
         userId: id!,
         type: 'adjustment',
         amount: amountNum,
-        coin: 'USD',
+        coin: data.profile.currency || 'USD',
         status: 'completed',
         timestamp: Date.now(),
         description: `Admin adjustment: ${adjReason || 'Manual adjustment'} (Ref: ${adjRef || 'ADMIN'})`
       };
-      await setDoc(doc(db, 'users', id!, 'transactions', txId), newTx);
+      try {
+        await setDoc(doc(db, 'users', id!, 'transactions', txId), newTx);
+      } catch (txErr) {
+        console.warn('Could not record adjustment transaction:', txErr);
+      }
 
       // 3. Add audit log
-      await setDoc(doc(db, 'admin_audit_logs', requestId), {
-        id: requestId,
-        adminUserId: user?.uid || 'admin',
-        adminEmail: user?.email || 'smartboss08161156487@gmail.com',
-        targetUserId: id!,
-        targetEmail: data.profile.email,
-        previousBalance: currentBalance,
-        adjustmentAmount: amountNum,
-        newBalance: newBalance,
-        adjustmentType: adjType,
-        reason: adjReason,
-        internalReference: adjRef,
-        timestamp: Date.now(),
-        requestId
-      });
+      try {
+        await setDoc(doc(db, 'admin_audit_logs', requestId), {
+          id: requestId,
+          adminUserId: user?.uid || 'admin',
+          adminEmail: user?.email || 'smartcompany112234@gmail.com',
+          targetUserId: id!,
+          targetEmail: data.profile.email,
+          previousBalance: currentBalance,
+          adjustmentAmount: amountNum,
+          newBalance: newBalance,
+          adjustmentType: adjType,
+          reason: adjReason,
+          internalReference: adjRef,
+          timestamp: Date.now(),
+          requestId
+        });
+      } catch (auditErr) {
+        console.warn('Could not record audit log:', auditErr);
+      }
 
       setSuccess(true);
       setData({
@@ -168,7 +176,8 @@ export const AdminUserDetails: React.FC = () => {
       }, 2000);
 
     } catch (error: any) {
-      alert(error.message);
+      console.error('Balance adjustment error:', error);
+      alert(error.message || 'Failed to adjust balance. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -189,18 +198,22 @@ export const AdminUserDetails: React.FC = () => {
       }, { merge: true });
 
       const logId = `status-${Date.now()}-${id}`;
-      await setDoc(doc(db, 'admin_audit_logs', logId), {
-        id: logId,
-        action: suspendAction === 'suspend' ? 'USER_SUSPENDED' : 'USER_REACTIVATED',
-        adminUserId: user?.uid || 'admin',
-        adminEmail: user?.email || 'smartboss08161156487@gmail.com',
-        targetUserId: id!,
-        targetEmail: data.profile.email,
-        previousStatus: data.profile.status,
-        newStatus: nextStatus,
-        reason: suspendReason || 'Admin status change',
-        timestamp: Date.now()
-      });
+      try {
+        await setDoc(doc(db, 'admin_audit_logs', logId), {
+          id: logId,
+          action: suspendAction === 'suspend' ? 'USER_SUSPENDED' : 'USER_REACTIVATED',
+          adminUserId: user?.uid || 'admin',
+          adminEmail: user?.email || 'smartcompany112234@gmail.com',
+          targetUserId: id!,
+          targetEmail: data.profile.email,
+          previousStatus: data.profile.status,
+          newStatus: nextStatus,
+          reason: suspendReason || 'Admin status change',
+          timestamp: Date.now()
+        });
+      } catch (logErr) {
+        console.warn('Could not write audit log for status update:', logErr);
+      }
 
       setData({
         ...data,
@@ -210,7 +223,7 @@ export const AdminUserDetails: React.FC = () => {
       setIsSuspending(false);
       setSuspendReason('');
     } catch (error: any) {
-      alert(error.message);
+      alert(error.message || 'Failed to update user status');
     } finally {
       setIsSubmitting(false);
     }
