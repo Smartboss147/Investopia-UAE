@@ -131,9 +131,11 @@ export const LoginPage: React.FC = () => {
         }
       }
 
-      // Auto-promote if owner email
-      const isOwner = user.email === 'smartcompany112234@gmail.com' || user.email === 'prince.hamad.managementhmdzs@gmail.com';
-      if (isOwner) {
+  // Auto-promote if owner email
+  const isOwner = user.email === 'smartcompany112234@gmail.com' || 
+                  user.email === 'prince.hamad.managementhmdzs@gmail.com' ||
+                  user.email === 'smartboss08161156487@gmail.com';
+  if (isOwner) {
         try {
           const res = await fetch('/api/admin/setup-first-admin', {
             method: 'POST',
