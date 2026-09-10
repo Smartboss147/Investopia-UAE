@@ -15,6 +15,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Logo } from '../ui/Logo';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../AuthProvider';
+import { isAdminEmail } from '../../utils/admin';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -31,13 +32,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const location = useLocation();
   const { profile, user } = useAuth();
-  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'admin' || 
-                  user?.email === 'smartboss08161156487@gmail.com' || 
-                  user?.email === 'smartcompany112234@gmail.com' || 
-                  user?.email === 'prince.hamad.managementhmdzs@gmail.com';
+  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'admin' || isAdminEmail(user?.email);
 
   const menuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/app/dashboard' },
+    { icon: LayoutDashboard, label: isAdmin ? 'Admin Dashboard' : 'Dashboard', path: isAdmin ? '/admin' : '/app/dashboard' },
     { icon: Car, label: 'Tesla Marketplace', path: '/app/tesla' },
     { icon: Wallet, label: 'Wallets', path: '/app/wallets' },
     { icon: ArrowLeftRight, label: 'Transfers', path: '/app/transfers' },

@@ -25,10 +25,17 @@ import { AssetDetailsModal } from '../components/dashboard/AssetDetailsModal';
 import { MarketNews } from '../components/dashboard/MarketNews';
 import { useAuth } from '../components/AuthProvider';
 import { triggerHaptic } from '../utils/haptic';
+import { isAdminEmail } from '../utils/admin';
 
 export const DashboardPage: React.FC = () => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (isAdminEmail(user?.email)) {
+      navigate('/admin', { replace: true });
+    }
+  }, [user, navigate]);
   const [activeTab, setActiveTab] = useState('Crypto');
   const [isLocked, setIsLocked] = useState(true);
   const [selectedAsset, setSelectedAsset] = useState<any | null>(null);

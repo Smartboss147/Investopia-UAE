@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   signInWithEmailAndPassword, 
@@ -9,6 +9,8 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
+import { useAuth } from '../components/AuthProvider';
+import { isAdminEmail } from '../utils/admin';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -17,6 +19,7 @@ import { cn } from '../lib/utils';
 import { Mail } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
+  const { user: currentAuthUser, loading: authLoading } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,7 +40,16 @@ export const LoginPage: React.FC = () => {
   const location = useLocation();
   const from = location.state?.from?.pathname || '/app/dashboard';
 
-  const isOwnerEmail = email === 'smartcompany112234@gmail.com' || email === 'prince.hamad.managementhmdzs@gmail.com';
+  // If already logged in with admin email, automatically forward to /admin immediately
+  useEffect(() => {
+    if (!authLoading && currentAuthUser) {
+      if (isAdminEmail(currentAuthUser.email)) {
+        navigate('/admin', { replace: true });
+      }
+    }
+  }, [currentAuthUser, authLoading, navigate]);
+
+  const isOwnerEmail = isAdminEmail(email);
 
   const handlePromoteAdmin = async () => {
     setIsPromoting(true);
@@ -153,26 +165,9 @@ export const LoginPage: React.FC = () => {
         }
       }
 
-      // Auto-promote if owner email
-      const isOwner = user.email === 'smartcompany112234@gmail.com' || 
-                      user.email === 'prince.hamad.managementhmdzs@gmail.com' ||
-                      user.email === 'smartboss08161156487@gmail.com';
-      
-      if (isOwner) {
-        try {
-          const res = await fetch('/api/admin/setup-first-admin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: user.email })
-          });
-          if (res.ok) {
-            await user.getIdToken(true);
-          }
-        } catch (promoteErr) {
-          console.error('Auto-promotion failed:', promoteErr);
-        }
-        setSuccess('Welcome back, Admin! Redirecting to dashboard...');
-        setTimeout(() => navigate('/admin'), 1000);
+      // If admin, navigate to admin dashboard immediately
+      if (isAdminEmail(user.email)) {
+        navigate('/admin', { replace: true });
         return;
       }
 
@@ -191,11 +186,17 @@ export const LoginPage: React.FC = () => {
     setSuccess(null);
     setResetSent(false);
 
+    const cleanEmail = email.trim();
+
     try {
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
+        const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
+        if (isAdminEmail(cred.user.email) || isAdminEmail(cleanEmail)) {
+          navigate('/admin', { replace: true });
+          return;
+        }
       } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
         const user = userCredential.user;
 
         try {
@@ -214,14 +215,15 @@ export const LoginPage: React.FC = () => {
           setError('Account created, but profile setup failed. Please try logging in or reset your password if issues persist.');
           return;
         }
+
+        if (isAdminEmail(user.email) || isAdminEmail(cleanEmail)) {
+          navigate('/admin', { replace: true });
+          return;
+        }
       }
 
-      const isOwnerEmail = email === 'smartcompany112234@gmail.com' || 
-                           email === 'prince.hamad.managementhmdzs@gmail.com' ||
-                           email === 'smartboss08161156487@gmail.com';
-      if (isOwnerEmail) {
-        setSuccess('Welcome back, Admin! Redirecting to dashboard...');
-        setTimeout(() => navigate('/admin'), 1000);
+      if (isAdminEmail(cleanEmail)) {
+        navigate('/admin', { replace: true });
         return;
       }
 

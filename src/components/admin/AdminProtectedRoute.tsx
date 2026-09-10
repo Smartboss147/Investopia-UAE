@@ -2,13 +2,14 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthProvider';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { isAdminEmail } from '../../utils/admin';
 
 interface AdminProtectedRouteProps {
   children: React.ReactNode;
 }
 
 export const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, profile } = useAuth();
   const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
   const location = useLocation();
 
@@ -18,13 +19,17 @@ export const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ childr
         setIsAdmin(false);
         return;
       }
+      if (isAdminEmail(user.email)) {
+        setIsAdmin(true);
+        return;
+      }
+      if (profile?.role === 'super_admin' || profile?.role === 'admin') {
+        setIsAdmin(true);
+        return;
+      }
       try {
         const idTokenResult = await user.getIdTokenResult();
-        const isHardcodedAdmin = 
-          user.email === 'smartboss08161156487@gmail.com' || 
-          user.email === 'smartcompany112234@gmail.com' || 
-          user.email === 'prince.hamad.managementhmdzs@gmail.com';
-        setIsAdmin(!!idTokenResult.claims.admin || isHardcodedAdmin);
+        setIsAdmin(!!idTokenResult.claims.admin);
       } catch (error) {
         console.error('Error checking admin status:', error);
         setIsAdmin(false);
@@ -33,7 +38,7 @@ export const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ childr
     if (!loading) {
       checkAdmin();
     }
-  }, [user, loading]);
+  }, [user, loading, profile]);
 
   if (loading || isAdmin === null) {
     return (
@@ -44,7 +49,7 @@ export const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ childr
   }
 
   if (!isAdmin) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return <>{children}</>;

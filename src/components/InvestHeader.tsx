@@ -4,8 +4,15 @@ import { Menu, X, Search, ChevronDown, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { navItems } from '../lib/investData';
 import { cn } from '../lib/utils';
+import { useAuth } from './AuthProvider';
+import { isAdminEmail } from '../utils/admin';
 
 export const InvestHeader: React.FC = () => {
+  const { user } = useAuth();
+  const isAdmin = isAdminEmail(user?.email);
+  const portalPath = isAdmin ? '/admin' : user ? '/app/dashboard' : '/login';
+  const portalLabel = isAdmin ? 'Admin Panel' : user ? 'Portal' : 'Register Now';
+
   const [isScrolled, setIsScrolled] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -70,10 +77,10 @@ export const InvestHeader: React.FC = () => {
             <ChevronDown size={14} />
           </button>
           <Link 
-            to="/app/dashboard" 
+            to={portalPath} 
             className="bg-[#C5A059] text-[#00122e] px-6 py-2.5 text-xs font-bold uppercase tracking-wider hover:bg-white transition-colors"
           >
-            Register Now
+            {portalLabel}
           </Link>
         </div>
 
@@ -147,11 +154,11 @@ export const InvestHeader: React.FC = () => {
                 <span>Language: EN</span>
               </button>
               <Link 
-                to="/app/dashboard" 
+                to={portalPath} 
                 className="bg-[#C5A059] text-[#00122e] py-4 text-center text-lg font-bold uppercase tracking-wider"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                Register Now
+                {portalLabel}
               </Link>
             </div>
           </motion.div>
