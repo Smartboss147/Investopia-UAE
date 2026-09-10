@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   sendPasswordResetEmail,
   AuthError
 } from 'firebase/auth';
@@ -105,78 +104,6 @@ export const LoginPage: React.FC = () => {
   };
 
   
-  useEffect(() => {
-    const checkRedirect = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (result && result.user) {
-          setIsLoading(true);
-          await processGoogleUser(result.user);
-        }
-      } catch (err: any) {
-        setError(handleAuthError(err));
-        setIsLoading(false);
-      }
-    };
-    checkRedirect();
-  }, []);
-
-  const processGoogleUser = async (user: any) => {
-    try {
-      // Check if profile exists
-      const profileDoc = await getDoc(doc(db, 'users', user.uid));
-      if (!profileDoc.exists()) {
-        try {
-          await setDoc(doc(db, 'users', user.uid), {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName,
-            balance: 0,
-            status: 'unverified',
-            currency: 'USD',
-            createdAt: Date.now()
-          });
-        } catch (fsErr: any) {
-          console.error('Firestore Google Profile Error:', fsErr);
-          setError('Logged in via Google, but profile setup failed. Please refresh or contact support.');
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      // Auto-promote if owner email
-      const isOwner = user.email === 'smartcompany112234@gmail.com' || 
-                      user.email === 'prince.hamad.managementhmdzs@gmail.com' ||
-                      user.email === 'smartboss08161156487@gmail.com';
-      if (isOwner) {
-        try {
-          const res = await fetch('/api/admin/setup-first-admin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: user.email })
-          });
-          if (res.ok) {
-            // Force token refresh to include the new admin claim
-            await user.getIdToken(true);
-            setSuccess('Welcome back, Admin! Redirecting to dashboard...');
-            setIsLoading(false);
-            setTimeout(() => navigate('/admin'), 1500);
-            return;
-          }
-        } catch (promoteErr) {
-          console.error('Auto-promotion failed:', promoteErr);
-        }
-      }
-
-      setIsLoading(false);
-      navigate(from, { replace: true });
-    } catch (err: any) {
-      setError(handleAuthError(err));
-      setIsLoading(false);
-    }
-  };
-
-
   
   const handleResetPassword = async () => {
     if (!email) {
@@ -202,9 +129,58 @@ export const LoginPage: React.FC = () => {
     setError(null);
     setSuccess(null);
     try {
-      await signInWithRedirect(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      // Check if profile exists
+      const profileDoc = await getDoc(doc(db, 'users', user.uid));
+      if (!profileDoc.exists()) {
+        try {
+          await setDoc(doc(db, 'users', user.uid), {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            balance: 0,
+            status: 'unverified',
+            currency: 'USD',
+            createdAt: Date.now()
+          });
+        } catch (fsErr: any) {
+          console.error('Firestore Google Profile Error:', fsErr);
+          setError('Logged in via Google, but profile setup failed. Please refresh or contact support.');
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Auto-promote if owner email
+      const isOwner = user.email === 'smartcompany112234@gmail.com' || 
+                      user.email === 'prince.hamad.managementhmdzs@gmail.com' ||
+                      user.email === 'smartboss08161156487@gmail.com';
+      
+      if (isOwner) {
+        try {
+          const res = await fetch('/api/admin/setup-first-admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: user.email })
+          });
+          if (res.ok) {
+            // Force token refresh to include the new admin claim
+            await user.getIdToken(true);
+            setSuccess('Welcome back, Admin! Redirecting to dashboard...');
+            setTimeout(() => navigate('/admin'), 1500);
+            return;
+          }
+        } catch (promoteErr) {
+          console.error('Auto-promotion failed:', promoteErr);
+        }
+      }
+
+      navigate(from, { replace: true });
     } catch (err: any) {
       setError(handleAuthError(err));
+    } finally {
       setIsLoading(false);
     }
   };
