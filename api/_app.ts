@@ -22,9 +22,15 @@ try {
 
 // Initialize Firebase Admin
 if (!getApps().length) {
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT 
-    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT) 
-    : undefined;
+  let serviceAccount: any = undefined;
+
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_B64) {
+    const decoded = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, 'base64').toString('utf8');
+    serviceAccount = JSON.parse(decoded);
+  } else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    // Fallback for environments where the raw JSON env var still works correctly
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  }
 
   if (serviceAccount) {
     initializeApp({
