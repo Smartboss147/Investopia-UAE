@@ -166,15 +166,14 @@ export const LoginPage: React.FC = () => {
             body: JSON.stringify({ email: user.email })
           });
           if (res.ok) {
-            // Force token refresh to include the new admin claim
             await user.getIdToken(true);
-            setSuccess('Welcome back, Admin! Redirecting to dashboard...');
-            setTimeout(() => navigate('/admin'), 1500);
-            return;
           }
         } catch (promoteErr) {
           console.error('Auto-promotion failed:', promoteErr);
         }
+        setSuccess('Welcome back, Admin! Redirecting to dashboard...');
+        setTimeout(() => navigate('/admin'), 1000);
+        return;
       }
 
       navigate(from, { replace: true });
@@ -216,6 +215,16 @@ export const LoginPage: React.FC = () => {
           return;
         }
       }
+
+      const isOwnerEmail = email === 'smartcompany112234@gmail.com' || 
+                           email === 'prince.hamad.managementhmdzs@gmail.com' ||
+                           email === 'smartboss08161156487@gmail.com';
+      if (isOwnerEmail) {
+        setSuccess('Welcome back, Admin! Redirecting to dashboard...');
+        setTimeout(() => navigate('/admin'), 1000);
+        return;
+      }
+
       navigate(from, { replace: true });
     } catch (err: any) {
       setError(handleAuthError(err));
