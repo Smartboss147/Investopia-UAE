@@ -4,8 +4,21 @@ import dotenv from "dotenv";
 import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
+import fs from "fs";
+import path from "path";
 
 dotenv.config();
+
+// Read client config to get correct project ID and database ID
+let firebaseConfig: any = {};
+try {
+  const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
+  if (fs.existsSync(configPath)) {
+    firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  }
+} catch (e) {
+  console.warn("Could not read firebase-applet-config.json:", e);
+}
 
 // Initialize Firebase Admin
 if (!getApps().length) {
@@ -16,15 +29,19 @@ if (!getApps().length) {
   if (serviceAccount) {
     initializeApp({
       credential: cert(serviceAccount),
+      projectId: firebaseConfig.projectId
     });
   } else {
     // Fallback for local development or if ADC is available
-    initializeApp();
+    initializeApp({
+      projectId: firebaseConfig.projectId || "smart-gateway-pay"
+    });
   }
 }
 
-const db = getFirestore("ai-studio-coinflow-e7f8eab3-e815-4694-a8a3-ea007c1c40e2");
+const db = getFirestore(firebaseConfig.firestoreDatabaseId || "ai-studio-coinflow-e7f8eab3-e815-4694-a8a3-ea007c1c40e2");
 const auth = getAuth();
+
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
