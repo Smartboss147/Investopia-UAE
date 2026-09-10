@@ -45,15 +45,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
 
     const profileRef = doc(db, 'users', user.uid);
-    const unsubscribeProfile = onSnapshot(profileRef, (snapshot) => {
+    const unsubscribeProfile = onSnapshot(profileRef, async (snapshot) => {
       if (snapshot.exists()) {
         setProfile(snapshot.data() as UserProfile);
+        setLoading(false);
       } else {
-        setProfile(null);
+        // Auto-provision profile if document does not exist yet
+        try {
+          const { setDoc } = await import('firebase/firestore');
+          const newProf: UserProfile = {
+            uid: user.uid,
+            email: user.email || '',
+            displayName: user.displayName || user.email?.split('@')[0] || 'User',
+            balance: 0,
+            status: 'active',
+            currency: 'USD',
+            createdAt: Date.now()
+          };
+          await setDoc(profileRef, newProf, { merge: true });
+          setProfile(newProf);
+        } catch (e) {
+          console.warn('Could not auto-provision profile:', e);
+          setProfile(null);
+        } finally {
+          setLoading(false);
+        }
       }
-      setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
+      console.warn('Firestore profile listener notice:', error);
       setLoading(false);
     });
 

@@ -43,13 +43,46 @@ export const AdminUserDetails: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const idToken = await user?.getIdToken();
-        const response = await fetch(`/api/admin/users/${id}`, {
-          headers: { 'Authorization': `Bearer ${idToken}` }
-        });
-        if (!response.ok) throw new Error('Failed to fetch user');
-        const result = await response.json();
-        setData(result);
+        const { doc, getDoc, collection, getDocs } = await import('firebase/firestore');
+        const { db } = await import('../../lib/firebase');
+        const { BASELINE_USERS } = await import('../../utils/seedUsers');
+
+        let profile: UserProfile | null = null;
+        const userDoc = await getDoc(doc(db, 'users', id!));
+        if (userDoc.exists()) {
+          profile = { uid: userDoc.id, ...userDoc.data() } as UserProfile;
+        } else {
+          const matched = BASELINE_USERS.find(u => u.uid === id || u.email === id);
+          if (matched) {
+            profile = matched;
+          }
+        }
+
+        if (profile) {
+          let transactions: Transaction[] = [];
+          try {
+            const txSnap = await getDocs(collection(db, 'users', id!, 'transactions'));
+            transactions = txSnap.docs.map(d => ({ id: d.id, ...d.data() } as Transaction));
+            transactions.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+          } catch (txErr) {
+            console.warn('Could not fetch user transactions:', txErr);
+          }
+          setData({ profile, transactions });
+        } else {
+          // Fallback to server API if available
+          try {
+            const idToken = await user?.getIdToken();
+            const response = await fetch(`/api/admin/users/${id}`, {
+              headers: { 'Authorization': `Bearer ${idToken}` }
+            });
+            if (response.ok) {
+              const result = await response.json();
+              setData(result);
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }
       } catch (error) {
         console.error(error);
       } finally {
@@ -60,39 +93,71 @@ export const AdminUserDetails: React.FC = () => {
   }, [id, user]);
 
   const handleAdjustBalance = async () => {
+    if (!data) return;
     setIsSubmitting(true);
     try {
-      const idToken = await user?.getIdToken();
-      const requestId = `adj-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
-      const response = await fetch(`/api/admin/users/${id}/balance-adjustment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
-        },
-        body: JSON.stringify({
-          type: adjType,
-          amount: parseFloat(adjAmount),
-          reason: adjReason,
-          internalReference: adjRef,
-          requestId
-        })
-      });
+      const { doc, setDoc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('../../lib/firebase');
 
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'Adjustment failed');
+      const currentBalance = Number(data.profile.balance) || 0;
+      const amountNum = parseFloat(adjAmount);
+      if (isNaN(amountNum) || amountNum <= 0) {
+        throw new Error('Please enter a valid positive amount');
       }
 
-      setSuccess(true);
-      // Refresh data
-      const refreshedResponse = await fetch(`/api/admin/users/${id}`, {
-        headers: { 'Authorization': `Bearer ${idToken}` }
+      const newBalance = adjType === 'credit'
+        ? currentBalance + amountNum
+        : currentBalance - amountNum;
+
+      if (newBalance < 0) {
+        throw new Error('Debit amount cannot exceed current balance');
+      }
+
+      const requestId = `adj-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+      // 1. Update user profile
+      await setDoc(doc(db, 'users', id!), {
+        ...data.profile,
+        balance: newBalance
+      }, { merge: true });
+
+      // 2. Add transaction
+      const txId = `tx-${Date.now()}`;
+      const newTx: Transaction = {
+        id: txId,
+        userId: id!,
+        type: 'adjustment',
+        amount: amountNum,
+        coin: 'USD',
+        status: 'completed',
+        timestamp: Date.now(),
+        description: `Admin adjustment: ${adjReason || 'Manual adjustment'} (Ref: ${adjRef || 'ADMIN'})`
+      };
+      await setDoc(doc(db, 'users', id!, 'transactions', txId), newTx);
+
+      // 3. Add audit log
+      await setDoc(doc(db, 'admin_audit_logs', requestId), {
+        id: requestId,
+        adminUserId: user?.uid || 'admin',
+        adminEmail: user?.email || 'smartboss08161156487@gmail.com',
+        targetUserId: id!,
+        targetEmail: data.profile.email,
+        previousBalance: currentBalance,
+        adjustmentAmount: amountNum,
+        newBalance: newBalance,
+        adjustmentType: adjType,
+        reason: adjReason,
+        internalReference: adjRef,
+        timestamp: Date.now(),
+        requestId
       });
-      const result = await refreshedResponse.json();
-      setData(result);
-      
+
+      setSuccess(true);
+      setData({
+        profile: { ...data.profile, balance: newBalance },
+        transactions: [newTx, ...data.transactions]
+      });
+
       // Reset form
       setTimeout(() => {
         setIsConfirming(false);
@@ -110,32 +175,38 @@ export const AdminUserDetails: React.FC = () => {
   };
 
   const handleStatusUpdate = async () => {
+    if (!data) return;
     setIsSubmitting(true);
     try {
-      const idToken = await user?.getIdToken();
-      const endpoint = `/api/admin/users/${id}/${suspendAction}`;
-      
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
-        },
-        body: JSON.stringify({ reason: suspendReason })
+      const { doc, setDoc } = await import('firebase/firestore');
+      const { db } = await import('../../lib/firebase');
+
+      const nextStatus = suspendAction === 'suspend' ? 'suspended' : 'active';
+
+      await setDoc(doc(db, 'users', id!), {
+        ...data.profile,
+        status: nextStatus
+      }, { merge: true });
+
+      const logId = `status-${Date.now()}-${id}`;
+      await setDoc(doc(db, 'admin_audit_logs', logId), {
+        id: logId,
+        action: suspendAction === 'suspend' ? 'USER_SUSPENDED' : 'USER_REACTIVATED',
+        adminUserId: user?.uid || 'admin',
+        adminEmail: user?.email || 'smartboss08161156487@gmail.com',
+        targetUserId: id!,
+        targetEmail: data.profile.email,
+        previousStatus: data.profile.status,
+        newStatus: nextStatus,
+        reason: suspendReason || 'Admin status change',
+        timestamp: Date.now()
       });
 
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'Status update failed');
-      }
-
-      // Refresh data
-      const refreshedResponse = await fetch(`/api/admin/users/${id}`, {
-        headers: { 'Authorization': `Bearer ${idToken}` }
+      setData({
+        ...data,
+        profile: { ...data.profile, status: nextStatus }
       });
-      const result = await refreshedResponse.json();
-      setData(result);
-      
+
       setIsSuspending(false);
       setSuspendReason('');
     } catch (error: any) {

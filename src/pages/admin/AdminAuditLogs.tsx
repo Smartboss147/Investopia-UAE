@@ -27,10 +27,10 @@ export const AdminAuditLogs: React.FC = () => {
         const { collection, getDocs, orderBy, query } = await import('firebase/firestore');
         const { db } = await import('../../lib/firebase');
         
-        const q = query(collection(db, 'admin_audit_logs'), orderBy('timestamp', 'desc'));
-        const snapshot = await getDocs(q);
-        
-        setLogs(snapshot.docs.map(doc => doc.data() as any));
+        const snapshot = await getDocs(collection(db, 'admin_audit_logs'));
+        const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        setLogs(list);
       } catch (error) {
         console.error(error);
       } finally {

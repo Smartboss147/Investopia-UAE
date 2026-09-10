@@ -191,6 +191,25 @@ export const LoginPage: React.FC = () => {
     try {
       if (isLogin) {
         const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
+        
+        // Ensure profile exists in Firestore so admin dashboard sees them
+        try {
+          const userDoc = await getDoc(doc(db, 'users', cred.user.uid));
+          if (!userDoc.exists()) {
+            await setDoc(doc(db, 'users', cred.user.uid), {
+              uid: cred.user.uid,
+              email: cred.user.email,
+              displayName: cred.user.displayName || cred.user.email?.split('@')[0] || 'User',
+              balance: 0,
+              status: 'active',
+              currency: 'USD',
+              createdAt: Date.now()
+            }, { merge: true });
+          }
+        } catch (profErr) {
+          console.warn('Profile sync warning on login:', profErr);
+        }
+
         if (isAdminEmail(cred.user.email) || isAdminEmail(cleanEmail)) {
           navigate('/admin', { replace: true });
           return;
@@ -204,16 +223,14 @@ export const LoginPage: React.FC = () => {
           await setDoc(doc(db, 'users', user.uid), {
             uid: user.uid,
             email: user.email,
+            displayName: user.displayName || cleanEmail.split('@')[0] || 'User',
             balance: 0,
-            status: 'unverified',
+            status: 'active',
             currency: 'USD',
             createdAt: Date.now()
-          });
+          }, { merge: true });
         } catch (fsErr: any) {
           console.error('Firestore Profile Creation Error:', fsErr);
-          // If Firestore fails, the Auth account is still created.
-          setError('Account created, but profile setup failed. Please try logging in or reset your password if issues persist.');
-          return;
         }
 
         if (isAdminEmail(user.email) || isAdminEmail(cleanEmail)) {
