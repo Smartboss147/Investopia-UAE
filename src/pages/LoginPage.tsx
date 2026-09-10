@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
@@ -25,6 +25,13 @@ export const LoginPage: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
   const [isPromoting, setIsPromoting] = useState(false);
+
+  const [searchParams] = useSearchParams();
+  const showSetup = searchParams.get('setup') === '1';
+  const [adminSetupEmail, setAdminSetupEmail] = useState('');
+  const [adminSetupSecret, setAdminSetupSecret] = useState('');
+  const [adminSetupLoading, setAdminSetupLoading] = useState(false);
+  const [adminSetupFeedback, setAdminSetupFeedback] = useState<string | null>(null);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -210,6 +217,25 @@ export const LoginPage: React.FC = () => {
     }
   };
 
+  const handleSetupAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminSetupLoading(true);
+    setAdminSetupFeedback(null);
+    try {
+      const response = await fetch('/api/admin/setup-first-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: adminSetupEmail, secret: adminSetupSecret })
+      });
+      const data = await response.json();
+      setAdminSetupFeedback(JSON.stringify(data, null, 2));
+    } catch (err: any) {
+      setAdminSetupFeedback(JSON.stringify({ error: err.message }, null, 2));
+    } finally {
+      setAdminSetupLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0A0F1E] flex flex-col items-center justify-center p-6 relative overflow-hidden bg-dot-grid">
       {/* Background Blobs */}
@@ -323,19 +349,6 @@ export const LoginPage: React.FC = () => {
               </div>
             )}
 
-            {isOwnerEmail && (
-              <div className="p-4 bg-[#D4FF3D]/5 border border-[#D4FF3D]/20 rounded-2xl space-y-3">
-                <p className="text-[10px] text-[#D4FF3D] font-black uppercase tracking-widest text-center">Owner Detected</p>
-                <Button 
-                  type="button" 
-                  onClick={handlePromoteAdmin} 
-                  className="w-full bg-[#D4FF3D] text-black" 
-                  isLoading={isPromoting}
-                >
-                  Initialize Admin Access
-                </Button>
-              </div>
-            )}
 
             <div className="space-y-3">
               <Button type="submit" className="w-full" isLoading={isLoading}>
@@ -361,6 +374,42 @@ export const LoginPage: React.FC = () => {
             </p>
           </div>
         </Card>
+
+        {showSetup && (
+          <Card className="mt-8 p-6 border-amber-500/50 bg-[#131A2E]/80 backdrop-blur-xl">
+            <div className="flex flex-col items-center mb-6">
+              <h2 className="text-sm font-black text-amber-500 tracking-widest uppercase">
+                One-Time Admin Setup
+              </h2>
+            </div>
+            <form onSubmit={handleSetupAdmin} className="space-y-4">
+              <Input
+                label="Email"
+                type="email"
+                placeholder="Admin email"
+                value={adminSetupEmail}
+                onChange={(e) => setAdminSetupEmail(e.target.value)}
+                required
+              />
+              <Input
+                label="Secret"
+                type="password"
+                placeholder="Secret key"
+                value={adminSetupSecret}
+                onChange={(e) => setAdminSetupSecret(e.target.value)}
+                required
+              />
+              <Button type="submit" className="w-full bg-amber-500 hover:bg-amber-600 text-black" isLoading={adminSetupLoading}>
+                Promote to Super Admin
+              </Button>
+              {adminSetupFeedback && (
+                <pre className="mt-4 p-3 bg-black/50 border border-amber-500/20 rounded-lg text-amber-400 text-[10px] whitespace-pre-wrap font-mono break-all">
+                  {adminSetupFeedback}
+                </pre>
+              )}
+            </form>
+          </Card>
+        )}
       </div>
     </div>
   );
