@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Plus, 
   Search, 
@@ -14,7 +15,8 @@ import {
   XCircle,
   Save,
   X,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ArrowLeft
 } from 'lucide-react';
 import { db } from '../../lib/firebase';
 import { 
@@ -33,6 +35,7 @@ import { formatCurrency } from '../../utils/currency';
 import { cn } from '../../lib/utils';
 
 export const AdminTeslaProducts: React.FC = () => {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<TeslaProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -105,9 +108,18 @@ export const AdminTeslaProducts: React.FC = () => {
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-white tracking-tight">Tesla Marketplace Management</h1>
-          <p className="text-gray-500 text-sm mt-1">Manage vehicles, accessories, and technology catalog.</p>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => navigate('/admin')}
+            className="p-2 rounded-full bg-white/5 text-gray-400 hover:text-white transition-colors border border-white/5"
+            title="Back to Admin Terminal"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div>
+            <h1 className="text-3xl font-black text-white tracking-tight">Tesla Marketplace Management</h1>
+            <p className="text-gray-500 text-sm mt-1">Manage vehicles, accessories, and technology catalog.</p>
+          </div>
         </div>
         <button 
           onClick={() => {

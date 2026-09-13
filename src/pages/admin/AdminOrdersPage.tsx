@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { db } from '../../lib/firebase';
 import { collection, getDocs, doc, updateDoc, query, orderBy } from 'firebase/firestore';
 import { TeslaOrder, OrderStatus, TrackingMilestone } from '../../types/tesla';
 import { formatCurrency } from '../../utils/currency';
-import { Search, Package, MapPin, CheckCircle2, Navigation, AlertTriangle, Edit2, X, Save } from 'lucide-react';
+import { Search, Package, MapPin, CheckCircle2, Navigation, AlertTriangle, Edit2, X, Save, ArrowLeft } from 'lucide-react';
 
 export const AdminOrdersPage: React.FC = () => {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<TeslaOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -72,9 +74,18 @@ export const AdminOrdersPage: React.FC = () => {
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-black text-white tracking-widest uppercase">Order Management</h1>
-          <p className="text-gray-400 mt-2 text-sm">Track and manage Tesla product shipments</p>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => navigate('/admin')}
+            className="p-2 rounded-full bg-white/5 text-gray-400 hover:text-white transition-colors border border-white/5"
+            title="Back to Admin Terminal"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div>
+            <h1 className="text-3xl font-black text-white tracking-widest uppercase">Order Management</h1>
+            <p className="text-gray-400 mt-2 text-sm">Track and manage Tesla product shipments</p>
+          </div>
         </div>
         
         <div className="relative">

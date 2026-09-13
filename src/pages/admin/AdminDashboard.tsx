@@ -14,7 +14,9 @@ import {
   DollarSign,
   CheckCircle2,
   AlertCircle,
-  X
+  X,
+  LogOut,
+  ArrowLeft
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { useAuth } from '../../components/AuthProvider';
@@ -23,7 +25,7 @@ import { UserProfile } from '../../types';
 import { BASELINE_USERS, syncBaselineUsers } from '../../utils/seedUsers';
 
 export const AdminDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -47,6 +49,15 @@ export const AdminDashboard: React.FC = () => {
   const [isApplyingQuick, setIsApplyingQuick] = useState(false);
 
   const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate('/login', { replace: true });
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+  };
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -303,13 +314,14 @@ export const AdminDashboard: React.FC = () => {
             </span>
           </div>
           <p className="text-gray-400 text-sm mt-1">
-            Logged in as <span className="text-[#D4FF3D] font-mono font-bold">smartboss08161156487@gmail.com</span> (Master Admin)
+            Logged in as <span className="text-[#D4FF3D] font-mono font-bold">{user?.email || 'admin'}</span> (Master Admin)
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
           <button 
             onClick={() => setShowAddModal(true)}
+            id="admin-add-user-btn"
             className="flex items-center gap-2 bg-[#D4FF3D] text-black px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-white hover:scale-105 transition-all shadow-lg shadow-[#D4FF3D]/10"
           >
             <UserPlus size={15} /> Add User
@@ -318,6 +330,7 @@ export const AdminDashboard: React.FC = () => {
           <button 
             onClick={handleManualSync}
             disabled={isSyncing}
+            id="admin-sync-accounts-btn"
             className="flex items-center gap-2 bg-white/5 text-gray-300 px-3.5 py-2.5 rounded-xl text-xs font-bold border border-white/10 hover:bg-white/10 hover:text-white transition-all"
             title="Sync all baseline users and accounts"
           >
@@ -327,6 +340,7 @@ export const AdminDashboard: React.FC = () => {
 
           <button 
             onClick={() => navigate('/admin/audit-logs')}
+            id="admin-audit-logs-btn"
             className="flex items-center gap-2 bg-white/5 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold border border-white/10 hover:bg-white/10 transition-all"
           >
             <History size={14} /> Audit Logs
@@ -334,6 +348,7 @@ export const AdminDashboard: React.FC = () => {
 
           <button 
             onClick={() => navigate('/admin/orders')}
+            id="admin-tesla-orders-btn"
             className="flex items-center gap-2 bg-indigo-500/20 text-indigo-300 px-3.5 py-2.5 rounded-xl text-xs font-bold border border-indigo-500/30 hover:bg-indigo-500/30 transition-all"
           >
             <Zap size={14} /> Tesla Orders
@@ -341,9 +356,28 @@ export const AdminDashboard: React.FC = () => {
 
           <button 
             onClick={() => navigate('/admin/tesla')}
+            id="admin-tesla-catalog-btn"
             className="flex items-center gap-2 bg-purple-500/20 text-purple-300 px-3.5 py-2.5 rounded-xl text-xs font-bold border border-purple-500/30 hover:bg-purple-500/30 transition-all"
           >
             <Sliders size={14} /> Tesla Catalog
+          </button>
+
+          <button 
+            onClick={() => navigate('/app/dashboard')}
+            id="admin-exit-app-btn"
+            className="flex items-center gap-2 bg-blue-500/10 text-blue-400 px-3.5 py-2.5 rounded-xl text-xs font-bold border border-blue-500/20 hover:bg-blue-500/20 hover:text-white transition-all"
+            title="Return to User Dashboard"
+          >
+            <ArrowLeft size={14} /> User App
+          </button>
+
+          <button 
+            onClick={handleLogout}
+            id="admin-logout-btn"
+            className="flex items-center gap-2 bg-rose-500/10 text-rose-400 px-3.5 py-2.5 rounded-xl text-xs font-bold border border-rose-500/20 hover:bg-rose-500/20 hover:text-white transition-all"
+            title="Log Out of Admin"
+          >
+            <LogOut size={14} /> Log Out
           </button>
         </div>
       </div>
