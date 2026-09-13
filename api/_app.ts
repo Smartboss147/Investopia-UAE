@@ -25,47 +25,12 @@ if (!getApps().length) {
   let serviceAccount: any = undefined;
 
   try {
-    let rawEnv = process.env.FIREBASE_SERVICE_ACCOUNT_B64 
+    let rawEnv = process.env.FIREBASE_SERVICE_ACCOUNT_B64
       ? Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, 'base64').toString('utf8')
       : process.env.FIREBASE_SERVICE_ACCOUNT;
 
     if (rawEnv) {
-      rawEnv = rawEnv.trim();
-      if ((rawEnv.startsWith('"') && rawEnv.endsWith('"')) || (rawEnv.startsWith("'") && rawEnv.endsWith("'"))) {
-        try {
-          rawEnv = JSON.parse(rawEnv);
-        } catch (e) {
-          rawEnv = rawEnv.slice(1, -1).trim();
-        }
-      }
-      serviceAccount = typeof rawEnv === 'string' ? JSON.parse(rawEnv) : rawEnv;
-    }
-
-    if (serviceAccount && serviceAccount.private_key) {
-      let cleaned = serviceAccount.private_key;
-      if (typeof cleaned === 'string') {
-        // Remove quotes if present
-        if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
-          cleaned = cleaned.slice(1, -1);
-        }
-        
-        // Remove all whitespace and literal newline characters to get a continuous string
-        cleaned = cleaned.replace(/\\n/g, '').replace(/\s+/g, '');
-        
-        const header = "-----BEGIN PRIVATE KEY-----";
-        const footer = "-----END PRIVATE KEY-----";
-        
-        if (cleaned.includes("BEGINPRIVATEKEY") || cleaned.includes("BEGINRSAPRIVATEKEY")) {
-          // Extract just the base64 characters
-          const b64 = cleaned
-            .replace(/.*?BEGIN(?:RSA)?PRIVATEKEY-+(.*)-+END(?:RSA)?PRIVATEKEY.*/i, '$1')
-            .replace(/[^A-Za-z0-9+/=]/g, '');
-          
-          // Reconstruct properly into 64-character lines
-          const lines = b64.match(/.{1,64}/g) || [];
-          serviceAccount.private_key = `${header}\n${lines.join('\n')}\n${footer}\n`;
-        }
-      }
+      serviceAccount = JSON.parse(rawEnv);
     }
   } catch (err) {
     console.error("Error parsing service account credentials:", err);
@@ -95,7 +60,6 @@ if (!getApps().length) {
 const db = getFirestore(firebaseConfig.firestoreDatabaseId || "ai-studio-coinflow-e7f8eab3-e815-4694-a8a3-ea007c1c40e2");
 const auth = getAuth();
 
-
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
   httpOptions: {
@@ -108,7 +72,10 @@ const ai = new GoogleGenAI({
 const app = express();
 app.use(express.json());
 
-// Admin Middleware
+// Admin Middleware — verifies a real Firebase custom claim only.
+// No email is ever hardcoded here. Admin access comes exclusively from
+// the `admin: true` custom claim set via /api/admin/setup-first-admin
+// (which itself requires ADMIN_PROMOTION_SECRET, no exceptions).
 const verifyAdmin = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
@@ -118,22 +85,9 @@ const verifyAdmin = async (req: express.Request, res: express.Response, next: ex
   const idToken = authHeader.split('Bearer ')[1];
   try {
     const decodedToken = await auth.verifyIdToken(idToken);
-    
-    // Hardcode overrides for specific emails
-    const isHardcodedAdmin = 
-      decodedToken.email === 'smartboss08161156487@gmail.com' ||
-      decodedToken.email === 'smartcompany112234@gmail.com' ||
-      decodedToken.email === 'prince.hamad.managementhmdzs@gmail.com';
-
-    if (!decodedToken.admin && !isHardcodedAdmin) {
+    if (!decodedToken.admin) {
       return res.status(403).json({ error: 'Forbidden: Admin access required' });
     }
-    
-    // Inject super_admin role if hardcoded so requireRole passes
-    if (isHardcodedAdmin && !decodedToken.role) {
-      decodedToken.role = 'super_admin';
-    }
-
     (req as any).adminUser = decodedToken;
     next();
   } catch (error) {
@@ -145,8 +99,8 @@ const verifyAdmin = async (req: express.Request, res: express.Response, next: ex
 const requireRole = (roles: string[]) => (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const adminUser = (req as any).adminUser;
   if (!adminUser) return res.status(401).json({ error: 'Unauthorized' });
-  
-  // FIX 3: Default to least-privileged role ('support') instead of 'admin'
+
+  // Default to least-privileged role ('support') instead of 'admin'
   const userRole = adminUser.role || 'support';
   if (adminUser.role === 'super_admin' || roles.includes(userRole)) {
     return next();
@@ -169,10 +123,10 @@ app.get("/api/admin/users/:id", verifyAdmin, requireRole(['admin', 'support', 'a
   try {
     const userDoc = await db.collection('users').doc(req.params.id).get();
     if (!userDoc.exists) return res.status(404).json({ error: 'User not found' });
-    
+
     const transactionsSnapshot = await db.collection('users').doc(req.params.id)
       .collection('transactions').orderBy('timestamp', 'desc').limit(50).get();
-    
+
     res.json({
       profile: userDoc.data(),
       transactions: transactionsSnapshot.docs.map(doc => doc.data())
@@ -186,14 +140,12 @@ app.post("/api/admin/users/:id/balance-adjustment", verifyAdmin, requireRole(['a
   const { type, amount, reason, internalReference, requestId } = req.body;
   const adminUser = (req as any).adminUser;
 
-  // FIX 4: Validate amount is a finite number
   if (!['credit', 'debit'].includes(type) || typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0 || !reason || !internalReference || !requestId) {
     return res.status(400).json({ error: 'Invalid adjustment data' });
   }
 
   try {
     const result = await db.runTransaction(async (transaction) => {
-      // Idempotency check
       const logDoc = await transaction.get(db.collection('admin_audit_logs').doc(requestId));
       if (logDoc.exists) throw new Error('Duplicate request ID');
 
@@ -202,10 +154,9 @@ app.post("/api/admin/users/:id/balance-adjustment", verifyAdmin, requireRole(['a
       if (!userDoc.exists) throw new Error('User not found');
 
       const currentBalance = userDoc.data()?.balance || 0;
-      // Math in integer cents
       const amountCents = Math.round(amount * 100);
       const currentBalanceCents = Math.round(currentBalance * 100);
-      
+
       let newBalanceCents;
       if (type === 'credit') {
         newBalanceCents = currentBalanceCents + amountCents;
@@ -216,10 +167,8 @@ app.post("/api/admin/users/:id/balance-adjustment", verifyAdmin, requireRole(['a
 
       const newBalance = newBalanceCents / 100;
 
-      // 1. Update User Balance
       transaction.update(userRef, { balance: newBalance });
 
-      // 2. Create Transaction Record
       const txRef = userRef.collection('transactions').doc();
       transaction.set(txRef, {
         id: txRef.id,
@@ -232,7 +181,6 @@ app.post("/api/admin/users/:id/balance-adjustment", verifyAdmin, requireRole(['a
         description: `Admin adjustment: ${reason} (Ref: ${internalReference})`
       });
 
-      // 3. Create Audit Log
       const auditLog = {
         id: requestId,
         adminUserId: adminUser.uid,
@@ -260,7 +208,6 @@ app.post("/api/admin/users/:id/balance-adjustment", verifyAdmin, requireRole(['a
   }
 });
 
-// FIX 2: Suspend / Reactivate Endpoints
 app.post("/api/admin/users/:id/suspend", verifyAdmin, requireRole(['admin']), async (req, res) => {
   const { reason } = req.body;
   const adminUser = (req as any).adminUser;
@@ -344,13 +291,14 @@ app.get("/api/admin/audit-logs", verifyAdmin, requireRole(['super_admin', 'audit
   }
 });
 
-// FIX 5: Harden bootstrap endpoint with rate limiting
+// One-time bootstrap endpoint. Requires ADMIN_PROMOTION_SECRET with NO
+// exceptions for any email address, and does NOT create accounts — the
+// target account must already exist (sign up via /login first).
+// Remove or comment out this entire route once you've promoted your account.
 const bootstrapAttempts = new Map<string, { count: number, lastAttempt: number }>();
 const MAX_BOOTSTRAP_ATTEMPTS = 5;
 const BOOTSTRAP_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
-// Set ADMIN_PROMOTION_SECRET to a long random value in Vercel's environment variables, 
-// use this endpoint once to promote the first super_admin, then strongly consider removing or commenting out this route entirely.
 app.post("/api/admin/setup-first-admin", async (req, res) => {
   const ip = req.ip || req.headers['x-forwarded-for'] as string || 'unknown';
   const now = Date.now();
@@ -369,48 +317,27 @@ app.post("/api/admin/setup-first-admin", async (req, res) => {
   bootstrapAttempts.set(ip, userAttempts);
 
   const { email, secret } = req.body;
-  
-  const validSecret = process.env.ADMIN_PROMOTION_SECRET || 'investopia-admin-2026';
-  const isTargetUser = 
-    email === 'smartboss08161156487@gmail.com' || 
-    email === 'smartcompany112234@gmail.com' || 
-    email === 'prince.hamad.managementhmdzs@gmail.com';
 
-  if (secret !== validSecret && !isTargetUser) {
-    return res.status(401).json({ error: 'Unauthorized: Invalid secret' });
+  if (!process.env.ADMIN_PROMOTION_SECRET || !secret || secret !== process.env.ADMIN_PROMOTION_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
-  
-  try {
-    let user;
-    try {
-      user = await auth.getUserByEmail(email);
-    } catch (e: any) {
-      if (e.code === 'auth/user-not-found') {
-        user = await auth.createUser({
-          email,
-          password: 'Password123!',
-          emailVerified: true
-        });
-      } else {
-        throw e;
-      }
-    }
 
+  try {
+    const user = await auth.getUserByEmail(email);
     await auth.setCustomUserClaims(user.uid, { admin: true, role: 'super_admin' });
-    
-    // Also update Firestore profile for consistent UI
+
     await db.collection('users').doc(user.uid).set({
-      uid: user.uid,
-      email: user.email,
       role: 'super_admin',
-      status: 'active',
-      createdAt: new Date().toISOString()
+      status: 'active'
     }, { merge: true });
 
     res.json({ message: `Successfully promoted ${email} to super_admin` });
   } catch (error: any) {
     console.error("Promotion failed:", error);
-    res.status(500).json({ error: error.message || 'Promotion failed' });
+    if (error.code === 'auth/user-not-found') {
+      return res.status(404).json({ error: 'No account exists with this email yet. Sign up at /login first, then try again.' });
+    }
+    res.status(500).json({ error: 'Promotion failed' });
   }
 });
 
@@ -428,7 +355,6 @@ app.get("/api/news", async (req, res) => {
   const cacheRef = db.collection('system_config').doc('news_cache');
 
   try {
-    // 1. Try to get from Firestore cache
     const cacheDoc = await cacheRef.get();
     const now = Date.now();
 
@@ -439,10 +365,9 @@ app.get("/api/news", async (req, res) => {
       }
     }
 
-    // 2. If no cache or expired, fetch from Gemini
     console.log("Fetching fresh news from Gemini...");
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash", // Using a stable model name
+      model: "gemini-1.5-flash",
       contents: "Provide the 5 latest and most significant cryptocurrency market news headlines from today. Return a JSON array of objects with keys: 'title', 'summary' (one sentence), 'sentiment' (positive, negative, or neutral).",
       config: {
         tools: [{ googleSearch: {} }],
@@ -454,10 +379,9 @@ app.get("/api/news", async (req, res) => {
     if (text.startsWith('```')) {
       text = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
     }
-    
+
     const newsData = JSON.parse(text);
-    
-    // 3. Update Firestore cache
+
     await cacheRef.set({
       data: newsData,
       timestamp: now,
@@ -467,12 +391,11 @@ app.get("/api/news", async (req, res) => {
     res.json(newsData);
   } catch (error: any) {
     console.error("Error fetching news from Gemini:", error);
-    
+
     const errCode = error?.status || error?.code || error?.error?.code;
     const errMessage = error?.message || (error?.error?.message);
     console.error(`Gemini API Error Detail - Code: ${errCode}, Message: ${errMessage}`);
 
-    // 4. Return stale cache if available, otherwise fallback
     try {
       const cacheDoc = await cacheRef.get();
       if (cacheDoc.exists) {
@@ -485,7 +408,7 @@ app.get("/api/news", async (req, res) => {
     } catch (cacheError) {
       console.error("Failed to fetch stale cache:", cacheError);
     }
-    
+
     res.json(FALLBACK_NEWS);
   }
 });
