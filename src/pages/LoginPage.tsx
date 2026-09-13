@@ -202,17 +202,30 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
     setSuccess(null);
+    console.log('Diagnostic: Starting Google Sign In');
+    
+    // Detect mobile device to force redirect sign-in
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      console.info('Mobile device detected, forcing redirect sign-in...');
+      await signInWithRedirect(auth, googleProvider);
+      return;
+    }
+
     try {
       let user;
       try {
         const result = await signInWithPopup(auth, googleProvider);
         user = result.user;
+        console.log('Diagnostic: signInWithPopup successful', user?.email);
       } catch (popupErr: any) {
         if (popupErr?.code === 'auth/popup-blocked') {
           console.info('Popup blocked, attempting redirect sign-in...');
           await signInWithRedirect(auth, googleProvider);
           return;
         }
+        console.error('Diagnostic: Popup error', popupErr);
         throw popupErr;
       }
 
@@ -221,11 +234,13 @@ export const LoginPage: React.FC = () => {
       }
 
       const isUserAdmin = isAdminEmail(user.email);
+      console.log('Diagnostic: User admin status', isUserAdmin);
 
       // Gracefully ensure user profile exists in Firestore
       try {
         const profileRef = doc(db, 'users', user.uid);
         const profileDoc = await getDoc(profileRef);
+        console.log('Diagnostic: Firestore profile check', profileDoc.exists());
         if (!profileDoc.exists()) {
           const newProf: Record<string, any> = {
             uid: user.uid,
@@ -250,6 +265,7 @@ export const LoginPage: React.FC = () => {
 
       // If admin, notify backend and navigate to admin dashboard immediately
       if (isUserAdmin) {
+        console.log('Diagnostic: Navigating to admin');
         try {
           fetch('/api/admin/setup-first-admin', {
             method: 'POST',
@@ -264,6 +280,7 @@ export const LoginPage: React.FC = () => {
       }
 
       const target = (from && from !== '/login' && from !== '/admin') ? from : '/app/dashboard';
+      console.log('Diagnostic: Navigating to target', target);
       navigate(target, { replace: true });
     } catch (err: any) {
       if (err?.code === 'auth/popup-closed-by-user') {
@@ -271,6 +288,7 @@ export const LoginPage: React.FC = () => {
         setIsLoading(false);
         return;
       }
+      console.error('Diagnostic: Sign In Error', err);
       setError(handleAuthError(err));
     } finally {
       setIsLoading(false);
