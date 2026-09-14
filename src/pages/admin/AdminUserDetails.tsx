@@ -45,17 +45,11 @@ export const AdminUserDetails: React.FC = () => {
       try {
         const { doc, getDoc, collection, getDocs } = await import('firebase/firestore');
         const { db } = await import('../../lib/firebase');
-        const { BASELINE_USERS } = await import('../../utils/seedUsers');
 
         let profile: UserProfile | null = null;
         const userDoc = await getDoc(doc(db, 'users', id!));
         if (userDoc.exists()) {
           profile = { uid: userDoc.id, ...userDoc.data() } as UserProfile;
-        } else {
-          const matched = BASELINE_USERS.find(u => u.uid === id || u.email === id);
-          if (matched) {
-            profile = matched;
-          }
         }
 
         if (profile) {
@@ -96,9 +90,6 @@ export const AdminUserDetails: React.FC = () => {
     if (!data) return;
     setIsSubmitting(true);
     try {
-      const { doc, setDoc, updateDoc } = await import('firebase/firestore');
-      const { db } = await import('../../lib/firebase');
-
       const currentBalance = Number(data.profile.balance) || 0;
       const amountNum = parseFloat(adjAmount);
       if (isNaN(amountNum) || amountNum <= 0) {
@@ -114,17 +105,33 @@ export const AdminUserDetails: React.FC = () => {
       }
 
       const requestId = `adj-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      const idToken = await user?.getIdToken();
+      if (!idToken) throw new Error('Authentication required');
 
-      // 1. Update user profile
-      await setDoc(doc(db, 'users', id!), {
-        ...data.profile,
-        balance: newBalance
-      }, { merge: true });
+      // Call secure server endpoint (which runs atomic transaction with audit logging)
+      const response = await fetch(`/api/admin/users/${id}/balance-adjustment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          type: adjType,
+          amount: amountNum,
+          reason: adjReason || 'Manual adjustment',
+          internalReference: adjRef || 'ADMIN',
+          requestId
+        })
+      });
 
-      // 2. Add transaction
-      const txId = `tx-${Date.now()}`;
+      const resData = await response.json();
+      if (!response.ok) {
+        throw new Error(resData.error || 'Failed to adjust balance');
+      }
+
+      const adjustedBalance = typeof resData.newBalance === 'number' ? resData.newBalance : newBalance;
       const newTx: Transaction = {
-        id: txId,
+        id: requestId,
         userId: id!,
         type: 'adjustment',
         amount: amountNum,
@@ -133,36 +140,10 @@ export const AdminUserDetails: React.FC = () => {
         timestamp: Date.now(),
         description: `Admin adjustment: ${adjReason || 'Manual adjustment'} (Ref: ${adjRef || 'ADMIN'})`
       };
-      try {
-        await setDoc(doc(db, 'users', id!, 'transactions', txId), newTx);
-      } catch (txErr) {
-        console.warn('Could not record adjustment transaction:', txErr);
-      }
-
-      // 3. Add audit log
-      try {
-        await setDoc(doc(db, 'admin_audit_logs', requestId), {
-          id: requestId,
-          adminUserId: user?.uid || 'admin',
-          adminEmail: user?.email || 'smartcompany112234@gmail.com',
-          targetUserId: id!,
-          targetEmail: data.profile.email,
-          previousBalance: currentBalance,
-          adjustmentAmount: amountNum,
-          newBalance: newBalance,
-          adjustmentType: adjType,
-          reason: adjReason,
-          internalReference: adjRef,
-          timestamp: Date.now(),
-          requestId
-        });
-      } catch (auditErr) {
-        console.warn('Could not record audit log:', auditErr);
-      }
 
       setSuccess(true);
       setData({
-        profile: { ...data.profile, balance: newBalance },
+        profile: { ...data.profile, balance: adjustedBalance },
         transactions: [newTx, ...data.transactions]
       });
 
@@ -187,33 +168,30 @@ export const AdminUserDetails: React.FC = () => {
     if (!data) return;
     setIsSubmitting(true);
     try {
-      const { doc, setDoc } = await import('firebase/firestore');
-      const { db } = await import('../../lib/firebase');
+      const idToken = await user?.getIdToken();
+      if (!idToken) throw new Error('Authentication required');
+
+      const endpoint = suspendAction === 'suspend'
+        ? `/api/admin/users/${id}/suspend`
+        : `/api/admin/users/${id}/reactivate`;
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          reason: suspendReason || 'Admin status change'
+        })
+      });
+
+      const resData = await response.json();
+      if (!response.ok) {
+        throw new Error(resData.error || 'Failed to update user status');
+      }
 
       const nextStatus = suspendAction === 'suspend' ? 'suspended' : 'active';
-
-      await setDoc(doc(db, 'users', id!), {
-        ...data.profile,
-        status: nextStatus
-      }, { merge: true });
-
-      const logId = `status-${Date.now()}-${id}`;
-      try {
-        await setDoc(doc(db, 'admin_audit_logs', logId), {
-          id: logId,
-          action: suspendAction === 'suspend' ? 'USER_SUSPENDED' : 'USER_REACTIVATED',
-          adminUserId: user?.uid || 'admin',
-          adminEmail: user?.email || 'smartcompany112234@gmail.com',
-          targetUserId: id!,
-          targetEmail: data.profile.email,
-          previousStatus: data.profile.status,
-          newStatus: nextStatus,
-          reason: suspendReason || 'Admin status change',
-          timestamp: Date.now()
-        });
-      } catch (logErr) {
-        console.warn('Could not write audit log for status update:', logErr);
-      }
 
       setData({
         ...data,

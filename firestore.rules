@@ -15,55 +15,9 @@ service cloud.firestore {
 
     function isAdmin() { 
       return isSignedIn() && (
-        (request.auth.token.email in [
-          'smartboss08161156487@gmail.com',
-          'smartcompany112234@gmail.com',
-          'prince.hamad.managementhmdzs@gmail.com'
-        ]) ||
-        ('email' in request.auth.token && request.auth.token.email.lower() in [
-          'smartboss08161156487@gmail.com',
-          'smartcompany112234@gmail.com',
-          'prince.hamad.managementhmdzs@gmail.com'
-        ]) ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'))
+        request.auth.token.admin == true ||
+        request.auth.token.role == 'super_admin'
       );
-    }
-
-    // Tesla Product Validation
-    function isValidTeslaProduct(data) {
-      return data.keys().hasAll(['name', 'slug', 'category', 'price', 'currency', 'availability']) &&
-             data.name is string && data.name.size() <= 200 &&
-             data.slug is string &&
-             data.category in ['Vehicles', 'Charging', 'Accessories', 'Technology', 'Lifestyle'] &&
-             data.price is number &&
-             data.currency in ['AED', 'USD', 'EUR', 'GBP', 'NGN'] &&
-             data.availability in ['Available', 'Out of Stock', 'Coming Soon'];
-    }
-
-    // Tesla Order Validation
-    function isValidTeslaOrder(data) {
-      return data.keys().hasAll(['userId', 'status', 'currency', 'totalAmount', 'items', 'createdAt']) &&
-             data.userId == request.auth.uid &&
-             data.status in ['pending', 'confirmed'] &&
-             data.currency is string &&
-             data.totalAmount is number &&
-             data.items is list &&
-             data.createdAt is string;
-    }
-
-    match /tesla_products/{productId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    match /tesla_orders/{orderId} {
-      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn() && isValidTeslaOrder(incoming());
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
     }
 
     // User Profile Validation
@@ -78,14 +32,14 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get, list: if isOwner(userId) || isAdmin();
-      allow create: if isAdmin() || (isOwner(userId) && isValidUserProfile(incoming()));
-      allow update: if isAdmin() || (isOwner(userId) && 
+      allow create: if isOwner(userId) && isValidUserProfile(incoming());
+      allow update: if isOwner(userId) && 
                     incoming().uid == existing().uid &&
                     incoming().email == existing().email &&
                     incoming().balance == existing().balance &&
                     incoming().status == existing().status &&
                     incoming().createdAt == existing().createdAt &&
-                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'currency']));
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'currency']);
       allow delete: if isAdmin();
       
       // Wallets subcollection
@@ -100,8 +54,8 @@ service cloud.firestore {
         }
 
         allow read: if isOwner(userId) || isAdmin();
-        allow create: if isAdmin() || (isOwner(userId) && isValidWallet(incoming()) && incoming().balance == 0);
-        allow update: if isAdmin();
+        allow create: if isOwner(userId) && isValidWallet(incoming()) && incoming().balance == 0;
+        allow update: if false;
         allow delete: if isOwner(userId) || isAdmin();
       }
 
@@ -117,11 +71,11 @@ service cloud.firestore {
         }
 
         allow read: if isOwner(userId) || isAdmin();
-        allow create: if isAdmin() || (isOwner(userId) && isValidTransaction(incoming()));
-        allow update: if isAdmin() || (isOwner(userId) && 
+        allow create: if isOwner(userId) && isValidTransaction(incoming());
+        allow update: if isOwner(userId) && 
                       existing().status == 'pending' &&
                       incoming().status == 'cancelled' &&
-                      incoming().diff(existing()).affectedKeys().hasOnly(['status']));
+                      incoming().diff(existing()).affectedKeys().hasOnly(['status']);
         allow delete: if isAdmin();
       }
 
@@ -145,7 +99,8 @@ service cloud.firestore {
     }
 
     match /admin_audit_logs/{logId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin();
+      allow write: if false;
     }
   }
 }

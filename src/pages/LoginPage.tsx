@@ -29,7 +29,6 @@ export const LoginPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
-  const [isPromoting, setIsPromoting] = useState(false);
 
   const [searchParams] = useSearchParams();
   const showSetup = searchParams.get('setup') === '1';
@@ -104,30 +103,6 @@ export const LoginPage: React.FC = () => {
       }
     }
   }, [currentAuthUser, authLoading, navigate, from]);
-
-  const isOwnerEmail = isAdminEmail(email);
-
-  const handlePromoteAdmin = async () => {
-    setIsPromoting(true);
-    setError(null);
-    setSuccess(null);
-    try {
-      const response = await fetch('/api/admin/setup-first-admin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Promotion failed');
-      
-      setSuccess('Admin promotion successful! Now sign in to access the dashboard.');
-      setIsLogin(true);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsPromoting(false);
-    }
-  };
 
   const handleAuthError = (err: any) => {
     console.error('Login/Signup Error:', err);
@@ -263,18 +238,9 @@ export const LoginPage: React.FC = () => {
         // Do not block navigation if AuthProvider or server sync handles it
       }
 
-      // If admin, notify backend and navigate to admin dashboard immediately
+      // If admin, navigate to admin dashboard immediately
       if (isUserAdmin) {
         console.log('Diagnostic: Navigating to admin');
-        try {
-          fetch('/api/admin/setup-first-admin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: user.email })
-          }).catch(() => {});
-        } catch {
-          // non-blocking
-        }
         navigate('/admin', { replace: true });
         return;
       }

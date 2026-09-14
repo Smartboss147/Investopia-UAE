@@ -22,12 +22,9 @@ import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminUserDetails } from './pages/admin/AdminUserDetails';
 import { AdminAuditLogs } from './pages/admin/AdminAuditLogs';
-import { AdminTeslaProducts } from './pages/admin/AdminTeslaProducts';
 
 import { OrdersPage } from './pages/OrdersPage';
 import { OrderTrackingPage } from './pages/OrderTrackingPage';
-
-import { AdminOrdersPage } from './pages/admin/AdminOrdersPage';
 
 export default function App() {
   return (
@@ -78,8 +75,6 @@ export default function App() {
                   <div className="max-w-7xl mx-auto">
                     <Routes>
                       <Route path="/" element={<AdminDashboard />} />
-                      <Route path="tesla" element={<AdminTeslaProducts />} />
-                      <Route path="orders" element={<AdminOrdersPage />} />
                       <Route path="users/:id" element={<AdminUserDetails />} />
                       <Route path="audit-logs" element={<AdminAuditLogs />} />
                       <Route path="*" element={<Navigate to="/admin" replace />} />
