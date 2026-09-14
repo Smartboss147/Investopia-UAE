@@ -5,13 +5,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { navItems } from '../lib/investData';
 import { cn } from '../lib/utils';
 import { useAuth } from './AuthProvider';
-import { isAdminEmail } from '../utils/admin';
 
 export const InvestHeader: React.FC = () => {
   const { user } = useAuth();
-  const isAdmin = isAdminEmail(user?.email);
-  const portalPath = isAdmin ? '/admin' : user ? '/app/dashboard' : '/login';
-  const portalLabel = isAdmin ? 'Admin Panel' : user ? 'Portal' : 'Register Now';
+  const portalPath = user ? '/app/dashboard' : '/login';
+  const portalLabel = user ? 'Portal' : 'Register Now';
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);

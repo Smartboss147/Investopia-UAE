@@ -2,43 +2,30 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthProvider';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { isAdminEmail } from '../../utils/admin';
-import { auth } from '../../lib/firebase';
 
 interface AdminProtectedRouteProps {
   children: React.ReactNode;
 }
 
+// Admin access comes ONLY from the real Firebase custom claim (admin: true),
+// verified via a freshly-refreshed ID token. No email is ever hardcoded here,
+// and a Firestore document field is never trusted for this decision (any
+// client could otherwise write a 'role' field to their own profile document).
 export const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ children }) => {
-  const { user, loading, profile } = useAuth();
-  const [isAdmin, setIsAdmin] = React.useState<boolean | null>(() => {
-    const initialUser = user || auth.currentUser;
-    if (initialUser && isAdminEmail(initialUser.email)) return true;
-    return null;
-  });
+  const { user, loading } = useAuth();
+  const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
   const location = useLocation();
-
-  const activeUser = user || auth.currentUser;
 
   React.useEffect(() => {
     const checkAdmin = async () => {
-      const current = user || auth.currentUser;
-      if (!current) {
-        if (!loading) {
-          setIsAdmin(false);
-        }
-        return;
-      }
-      if (isAdminEmail(current.email)) {
-        setIsAdmin(true);
-        return;
-      }
-      if (profile?.role === 'super_admin' || profile?.role === 'admin') {
-        setIsAdmin(true);
+      if (!user) {
+        setIsAdmin(false);
         return;
       }
       try {
-        const idTokenResult = await current.getIdTokenResult();
+        // Force a refresh so a just-granted claim is picked up without
+        // requiring a manual sign-out/sign-in.
+        const idTokenResult = await user.getIdTokenResult(true);
         setIsAdmin(!!idTokenResult.claims.admin);
       } catch (error) {
         console.error('Error checking admin status:', error);
@@ -46,10 +33,12 @@ export const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ childr
       }
     };
 
-    checkAdmin();
-  }, [user, loading, profile]);
+    if (!loading) {
+      checkAdmin();
+    }
+  }, [user, loading]);
 
-  if ((loading && !activeUser) || isAdmin === null) {
+  if (loading || isAdmin === null) {
     return (
       <div className="min-h-screen bg-[#0A0F1E] flex items-center justify-center">
         <LoadingSpinner size={48} />
@@ -57,12 +46,11 @@ export const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ childr
     );
   }
 
-  if (!activeUser) {
+  if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   if (!isAdmin) {
-    // If authenticated user is not an admin, redirect to trading dashboard, not login
     return <Navigate to="/app/dashboard" replace />;
   }
 

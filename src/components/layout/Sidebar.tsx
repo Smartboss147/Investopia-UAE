@@ -15,7 +15,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { Logo } from '../ui/Logo';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../AuthProvider';
-import { isAdminEmail } from '../../utils/admin';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -32,7 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const location = useLocation();
   const { profile, user } = useAuth();
-  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'admin' || isAdminEmail(user?.email);
+  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'admin';
 
   const menuItems = [
     { icon: LayoutDashboard, label: isAdmin ? 'Admin Dashboard' : 'Dashboard', path: isAdmin ? '/admin' : '/app/dashboard' },

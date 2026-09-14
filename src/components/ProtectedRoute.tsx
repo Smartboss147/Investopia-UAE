@@ -2,7 +2,6 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 import { LoadingSpinner } from './ui/LoadingSpinner';
-import { isAdminEmail } from '../utils/admin';
 import { auth } from '../lib/firebase';
 
 interface ProtectedRouteProps {
@@ -29,11 +28,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     // back to that page after they login, which is a nicer user experience
     // than dropping them off on the home page.
     return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
-  // If this user is an admin, always redirect them directly to the Admin Dashboard
-  if (isAdminEmail(activeUser.email)) {
-    return <Navigate to="/admin" replace />;
   }
 
   return <>{children}</>;

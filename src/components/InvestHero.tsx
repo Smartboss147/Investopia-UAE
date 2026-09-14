@@ -3,13 +3,11 @@ import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ArrowRight, Play } from 'lucide-react';
 import { useAuth } from './AuthProvider';
-import { isAdminEmail } from '../utils/admin';
 
 export const InvestHero: React.FC = () => {
   const { user } = useAuth();
-  const isAdmin = isAdminEmail(user?.email);
-  const ctaPath = isAdmin ? '/admin' : user ? '/app/dashboard' : '/login';
-  const ctaLabel = isAdmin ? 'Admin Dashboard' : user ? 'Access Portal' : 'Register Now';
+  const ctaPath = user ? '/app/dashboard' : '/login';
+  const ctaLabel = user ? 'Access Portal' : 'Register Now';
 
   return (
     <section className="relative min-h-screen flex items-center pt-20 overflow-hidden bg-[#00122e]">
