@@ -21,18 +21,52 @@ try {
 }
 
 // Initialize Firebase Admin
+let firebaseAdminInitError: string | null = null;
+
 if (!getApps().length) {
   let serviceAccount: any = undefined;
 
   try {
-    let rawEnv = process.env.FIREBASE_SERVICE_ACCOUNT_B64
-      ? Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, 'base64').toString('utf8')
-      : process.env.FIREBASE_SERVICE_ACCOUNT;
+    const b64 = process.env.FIREBASE_SERVICE_ACCOUNT_B64?.trim();
+    const raw = process.env.FIREBASE_SERVICE_ACCOUNT?.trim();
 
-    if (rawEnv) {
-      serviceAccount = JSON.parse(rawEnv);
+    let jsonText: string | undefined;
+
+    if (b64) {
+      jsonText = Buffer.from(b64, 'base64').toString('utf8').trim();
+    } else if (raw) {
+      jsonText = raw;
     }
-  } catch (err) {
+
+    if (!jsonText) {
+      firebaseAdminInitError = 'Neither FIREBASE_SERVICE_ACCOUNT_B64 nor FIREBASE_SERVICE_ACCOUNT is set.';
+    } else {
+      serviceAccount = JSON.parse(jsonText);
+
+      // Normalize the private key: fix the two most common corruption
+      // patterns from copy/paste (literal "\\n" instead of real newlines,
+      // or stray surrounding whitespace).
+      if (typeof serviceAccount.private_key === 'string') {
+        serviceAccount.private_key = serviceAccount.private_key
+          .trim()
+          .replace(/\\n/g, '\n');
+      }
+
+      const requiredFields = ['project_id', 'private_key', 'client_email'];
+      const missing = requiredFields.filter(f => !serviceAccount[f]);
+      if (missing.length > 0) {
+        firebaseAdminInitError = `Service account JSON is missing required field(s): ${missing.join(', ')}`;
+        serviceAccount = undefined;
+      } else if (
+        !serviceAccount.private_key.includes('-----BEGIN PRIVATE KEY-----') ||
+        !serviceAccount.private_key.includes('-----END PRIVATE KEY-----')
+      ) {
+        firebaseAdminInitError = 'Service account private_key does not contain valid PEM markers — the stored credential value is corrupted. Re-generate the key and re-encode it.';
+        serviceAccount = undefined;
+      }
+    }
+  } catch (err: any) {
+    firebaseAdminInitError = `Failed to parse service account credentials: ${err.message}`;
     console.error("Error parsing service account credentials:", err);
   }
 
@@ -43,14 +77,21 @@ if (!getApps().length) {
         projectId: firebaseConfig.projectId
       });
       console.log("Firebase Admin initialized with service account.");
-    } catch (err) {
+    } catch (err: any) {
+      firebaseAdminInitError = `cert() rejected the service account: ${err.message}`;
       console.error("Failed to initialize Firebase Admin with cert:", err);
       initializeApp({
         projectId: firebaseConfig.projectId || "smart-gateway-pay"
       });
     }
   } else {
-    // Fallback for local development or if ADC is available
+    if (!firebaseAdminInitError) {
+      firebaseAdminInitError = 'No valid service account credentials found.';
+    }
+    console.error("Firebase Admin credential error:", firebaseAdminInitError);
+    // Fallback so the app doesn't crash entirely, but admin-only routes
+    // will report firebaseAdminInitError clearly instead of a cryptic
+    // downstream error.
     initializeApp({
       projectId: firebaseConfig.projectId || "smart-gateway-pay"
     });
@@ -320,6 +361,10 @@ app.post("/api/admin/setup-first-admin", async (req, res) => {
 
   if (!process.env.ADMIN_PROMOTION_SECRET || !secret || secret !== process.env.ADMIN_PROMOTION_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (firebaseAdminInitError) {
+    return res.status(500).json({ error: `Server credential misconfiguration: ${firebaseAdminInitError}` });
   }
 
   try {
