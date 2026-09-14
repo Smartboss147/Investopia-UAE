@@ -98,8 +98,17 @@ if (!getApps().length) {
   }
 }
 
-const db = getFirestore(firebaseConfig.firestoreDatabaseId || "ai-studio-coinflow-e7f8eab3-e815-4694-a8a3-ea007c1c40e2");
-const auth = getAuth();
+let db: any;
+let auth: any;
+let criticalInitError: string | null = firebaseAdminInitError;
+
+try {
+  db = getFirestore(firebaseConfig.firestoreDatabaseId || "ai-studio-coinflow-e7f8eab3-e815-4694-a8a3-ea007c1c40e2");
+  auth = getAuth();
+} catch (err: any) {
+  criticalInitError = `Firestore/Auth initialization failed: ${err.message}`;
+  console.error(criticalInitError);
+}
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -112,6 +121,15 @@ const ai = new GoogleGenAI({
 
 const app = express();
 app.use(express.json());
+
+// If Firebase Admin failed to initialize, report it clearly on every
+// request instead of letting requests fail in confusing, inconsistent ways.
+app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (criticalInitError) {
+    return res.status(500).json({ error: `Server initialization failed: ${criticalInitError}` });
+  }
+  next();
+});
 
 // Admin Middleware — verifies a real Firebase custom claim only.
 // No email is ever hardcoded here. Admin access comes exclusively from
