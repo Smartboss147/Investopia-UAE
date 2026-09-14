@@ -458,4 +458,19 @@ app.get("/api/news", async (req, res) => {
   }
 });
 
+// Global error handler — catches anything that reaches here and returns
+// the real error message as JSON instead of letting it become an opaque
+// platform-level crash page. This makes future debugging possible from
+// the browser response alone, without needing to check server logs.
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Unhandled error:', err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(500).json({
+    error: err?.message || 'Internal server error',
+    route: req.path,
+  });
+});
+
 export default app;
