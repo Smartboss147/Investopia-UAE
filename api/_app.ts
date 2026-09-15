@@ -9,124 +9,83 @@ import path from "path";
 
 dotenv.config();
 
-// Read client config to get correct project ID and database ID
 let firebaseConfig: any = {};
+let db: any;
+let auth: any;
+let ai: any;
+let criticalInitError: string | null = null;
+
 try {
-  const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
-  if (fs.existsSync(configPath)) {
-    firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  }
-} catch (e) {
-  console.warn("Could not read firebase-applet-config.json:", e);
-}
-
-// Initialize Firebase Admin
-let firebaseAdminInitError: string | null = null;
-
-if (!getApps().length) {
-  let serviceAccount: any = undefined;
-
+  // Read client config to get correct project ID and database ID
   try {
-    const b64 = process.env.FIREBASE_SERVICE_ACCOUNT_B64?.trim();
-    const raw = process.env.FIREBASE_SERVICE_ACCOUNT?.trim();
-
-    let jsonText: string | undefined;
-
-    if (b64) {
-      jsonText = Buffer.from(b64, 'base64').toString('utf8').trim();
-    } else if (raw) {
-      jsonText = raw;
+    const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
+    if (fs.existsSync(configPath)) {
+      firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     }
-
-    if (!jsonText) {
-      firebaseAdminInitError = 'Neither FIREBASE_SERVICE_ACCOUNT_B64 nor FIREBASE_SERVICE_ACCOUNT is set.';
-    } else {
-      serviceAccount = JSON.parse(jsonText);
-
-      // Normalize the private key: fix the two most common corruption
-      // patterns from copy/paste (literal "\\n" instead of real newlines,
-      // or stray surrounding whitespace).
-      if (typeof serviceAccount.private_key === 'string') {
-        serviceAccount.private_key = serviceAccount.private_key
-          .trim()
-          .replace(/\\n/g, '\n');
-      }
-
-      const requiredFields = ['project_id', 'private_key', 'client_email'];
-      const missing = requiredFields.filter(f => !serviceAccount[f]);
-      if (missing.length > 0) {
-        firebaseAdminInitError = `Service account JSON is missing required field(s): ${missing.join(', ')}`;
-        serviceAccount = undefined;
-      } else if (
-        !serviceAccount.private_key.includes('-----BEGIN PRIVATE KEY-----') ||
-        !serviceAccount.private_key.includes('-----END PRIVATE KEY-----')
-      ) {
-        firebaseAdminInitError = 'Service account private_key does not contain valid PEM markers — the stored credential value is corrupted. Re-generate the key and re-encode it.';
-        serviceAccount = undefined;
-      }
-    }
-  } catch (err: any) {
-    firebaseAdminInitError = `Failed to parse service account credentials: ${err.message}`;
-    console.error("Error parsing service account credentials:", err);
+  } catch (e) {
+    console.warn("Could not read firebase-applet-config.json:", e);
   }
 
-  if (serviceAccount) {
+  // Initialize Firebase Admin
+  if (!getApps().length) {
+    let serviceAccount: any = undefined;
+
     try {
+      const b64 = process.env.FIREBASE_SERVICE_ACCOUNT_B64?.trim();
+      const raw = process.env.FIREBASE_SERVICE_ACCOUNT?.trim();
+      let jsonText: string | undefined;
+
+      if (b64) {
+        jsonText = Buffer.from(b64, 'base64').toString('utf8').trim();
+      } else if (raw) {
+        jsonText = raw;
+      }
+
+      if (jsonText) {
+        serviceAccount = JSON.parse(jsonText);
+        if (typeof serviceAccount.private_key === 'string') {
+          serviceAccount.private_key = serviceAccount.private_key.trim().replace(/\\n/g, '\n');
+        }
+      }
+    } catch (err: any) {
+      console.error("Error parsing service account credentials:", err);
+    }
+
+    if (serviceAccount) {
       initializeApp({
         credential: cert(serviceAccount),
         projectId: firebaseConfig.projectId
       });
       console.log("Firebase Admin initialized with service account.");
-    } catch (err: any) {
-      firebaseAdminInitError = `cert() rejected the service account: ${err.message}`;
-      console.error("Failed to initialize Firebase Admin with cert:", err);
+    } else {
       initializeApp({
         projectId: firebaseConfig.projectId || "smart-gateway-pay"
       });
     }
-  } else {
-    if (!firebaseAdminInitError) {
-      firebaseAdminInitError = 'No valid service account credentials found.';
-    }
-    console.error("Firebase Admin credential error:", firebaseAdminInitError);
-    // Fallback so the app doesn't crash entirely, but admin-only routes
-    // will report firebaseAdminInitError clearly instead of a cryptic
-    // downstream error.
-    initializeApp({
-      projectId: firebaseConfig.projectId || "smart-gateway-pay"
-    });
   }
-}
 
-let db: any;
-let auth: any;
-let criticalInitError: string | null = firebaseAdminInitError;
-
-try {
   db = getFirestore(firebaseConfig.firestoreDatabaseId || "ai-studio-coinflow-e7f8eab3-e815-4694-a8a3-ea007c1c40e2");
   auth = getAuth();
-} catch (err: any) {
-  criticalInitError = `Firestore/Auth initialization failed: ${err.message}`;
-  console.error(criticalInitError);
-}
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
+  ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      }
     }
-  }
-});
+  });
+} catch (err: any) {
+  criticalInitError = `Startup failed: ${err?.message || String(err)}`;
+  console.error("CRITICAL STARTUP ERROR:", err);
+}
 
 const app = express();
 app.use(express.json());
 
-// If Firebase Admin failed to initialize, report it clearly on every
-// request instead of letting requests fail in confusing, inconsistent ways.
 app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
-  if (criticalInitError) {
-    return res.status(500).json({ error: `Server initialization failed: ${criticalInitError}` });
+  if (criticalInitError && (req.path.startsWith('/api') || req.path === '/api')) {
+    return res.status(500).json({ error: criticalInitError });
   }
   next();
 });
@@ -138,10 +97,13 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
 const verifyAdmin = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'Unauthorized: Missing or invalid Authorization header' });
   }
 
-  const idToken = authHeader.split('Bearer ')[1];
+  const idToken = authHeader.split('Bearer ')[1]?.trim();
+  if (!idToken) {
+    return res.status(401).json({ error: 'Unauthorized: Bearer token is empty' });
+  }
   try {
     const decodedToken = await auth.verifyIdToken(idToken);
     if (!decodedToken.admin) {
@@ -359,7 +321,8 @@ const MAX_BOOTSTRAP_ATTEMPTS = 5;
 const BOOTSTRAP_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
 app.post("/api/admin/setup-first-admin", async (req, res) => {
-  const ip = req.ip || req.headers['x-forwarded-for'] as string || 'unknown';
+  const rawIp = req.headers['x-forwarded-for'];
+  const ip = (typeof rawIp === 'string' ? rawIp.split(',')[0].trim() : (Array.isArray(rawIp) ? rawIp[0] : req.ip)) || 'unknown';
   const now = Date.now();
   const userAttempts = bootstrapAttempts.get(ip) || { count: 0, lastAttempt: 0 };
 
@@ -375,18 +338,40 @@ app.post("/api/admin/setup-first-admin", async (req, res) => {
   userAttempts.lastAttempt = now;
   bootstrapAttempts.set(ip, userAttempts);
 
-  const { email, secret } = req.body;
+  const { email, secret } = req.body || {};
 
-  if (!process.env.ADMIN_PROMOTION_SECRET || !secret || secret !== process.env.ADMIN_PROMOTION_SECRET) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  // 1. Check server-side secret configuration
+  if (!process.env.ADMIN_PROMOTION_SECRET) {
+    return res.status(500).json({ error: 'Server misconfiguration: ADMIN_PROMOTION_SECRET environment variable is not set.' });
   }
 
-  if (firebaseAdminInitError) {
-    return res.status(500).json({ error: `Server credential misconfiguration: ${firebaseAdminInitError}` });
+  // 2. Check request secret provided
+  if (!secret) {
+    return res.status(400).json({ error: 'Missing promotion secret.' });
+  }
+
+  // 3. Check secret match
+  if (secret !== process.env.ADMIN_PROMOTION_SECRET) {
+    return res.status(401).json({ error: 'Invalid promotion secret.' });
+  }
+
+  // 4. Check Firebase Admin initialization
+  if (criticalInitError) {
+    return res.status(500).json({ error: `Firebase initialization failure: ${criticalInitError}` });
+  }
+
+  if (!auth || !db) {
+    return res.status(500).json({ error: 'Firebase initialization failure: Auth or Firestore service is unavailable.' });
+  }
+
+  // 5. Check email provided
+  if (!email || typeof email !== 'string' || !email.includes('@')) {
+    return res.status(400).json({ error: 'A valid email address is required.' });
   }
 
   try {
-    const user = await auth.getUserByEmail(email);
+    // Only promotes existing Firebase Auth users; getUserByEmail throws if user does not exist.
+    const user = await auth.getUserByEmail(email.trim().toLowerCase());
     await auth.setCustomUserClaims(user.uid, { admin: true, role: 'super_admin' });
 
     await db.collection('users').doc(user.uid).set({
@@ -400,7 +385,7 @@ app.post("/api/admin/setup-first-admin", async (req, res) => {
     if (error.code === 'auth/user-not-found') {
       return res.status(404).json({ error: 'No account exists with this email yet. Sign up at /login first, then try again.' });
     }
-    res.status(500).json({ error: 'Promotion failed' });
+    res.status(500).json({ error: error.message || 'Promotion failed' });
   }
 });
 
@@ -438,7 +423,7 @@ app.get("/api/news", async (req, res) => {
       }
     });
 
-    let text = response.text.trim();
+    let text = response.text?.trim() || "";
     if (text.startsWith('```')) {
       text = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
     }
@@ -476,6 +461,22 @@ app.get("/api/news", async (req, res) => {
   }
 });
 
+// Health check endpoint
+app.get("/api/health", (req: express.Request, res: express.Response) => {
+  res.json({ status: "ok", timestamp: Date.now() });
+});
+
+// 404 handler for API routes
+app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (req.path.startsWith('/api/') || req.path === '/api') {
+    return res.status(404).json({
+      error: `Route not found: ${req.method} ${req.path}`,
+      route: req.path
+    });
+  }
+  next();
+});
+
 // Global error handler — catches anything that reaches here and returns
 // the real error message as JSON instead of letting it become an opaque
 // platform-level crash page. This makes future debugging possible from
@@ -485,7 +486,13 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   if (res.headersSent) {
     return next(err);
   }
-  res.status(500).json({
+  const statusCode = (typeof err?.status === 'number' && err.status >= 400 && err.status < 600)
+    ? err.status
+    : (typeof err?.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 600)
+      ? err.statusCode
+      : 500;
+
+  res.status(statusCode).json({
     error: err?.message || 'Internal server error',
     route: req.path,
   });
