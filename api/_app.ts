@@ -51,15 +51,16 @@ try {
       console.error("Error parsing service account credentials:", err);
     }
 
+    const finalProjectId = firebaseConfig.projectId || serviceAccount?.project_id || "smart-gateway-pay";
     if (serviceAccount) {
       initializeApp({
         credential: cert(serviceAccount),
-        projectId: firebaseConfig.projectId
+        projectId: finalProjectId
       });
       console.log("Firebase Admin initialized with service account.");
     } else {
       initializeApp({
-        projectId: firebaseConfig.projectId || "smart-gateway-pay"
+        projectId: finalProjectId
       });
     }
   }
@@ -67,14 +68,20 @@ try {
   db = getFirestore(firebaseConfig.firestoreDatabaseId || "ai-studio-coinflow-e7f8eab3-e815-4694-a8a3-ea007c1c40e2");
   auth = getAuth();
 
-  ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      }
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+    } catch (aiErr) {
+      console.warn("Could not initialize Gemini AI client:", aiErr);
     }
-  });
+  }
 } catch (err: any) {
   criticalInitError = `Startup failed: ${err?.message || String(err)}`;
   console.error("CRITICAL STARTUP ERROR:", err);

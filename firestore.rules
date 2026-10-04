@@ -97,6 +97,24 @@ service cloud.firestore {
         allow update: if isOwner(userId) && isValidAlert(incoming());
         allow delete: if isOwner(userId) || isAdmin();
       }
+
+      // Stakes subcollection
+      match /stakes/{stakeId} {
+        function isValidStake(data) {
+          return data.keys().hasAll(['userId', 'asset', 'symbol', 'amount', 'apy', 'earned', 'status', 'createdAt']) &&
+                 data.userId == request.auth.uid &&
+                 data.asset is string &&
+                 data.symbol is string &&
+                 data.amount is number &&
+                 data.apy is number &&
+                 data.earned is number &&
+                 data.status in ['Active', 'Locked', 'Unlocking'] &&
+                 data.createdAt is string;
+        }
+
+        allow read: if isOwner(userId) || isAdmin();
+        allow create, update, delete: if false;
+      }
     }
 
     match /admin_audit_logs/{logId} {

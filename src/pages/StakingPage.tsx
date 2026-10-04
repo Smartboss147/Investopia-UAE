@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { 
   Zap, 
@@ -15,68 +15,50 @@ import { Card } from '../components/ui/Card';
 import { cn } from '../lib/utils';
 import { triggerHaptic } from '../utils/haptic';
 import { useTheme } from '../context/ThemeContext';
+import { db, auth } from '../lib/firebase';
+import { collection, query, onSnapshot } from 'firebase/firestore';
 
 interface StakedAsset {
   id: string;
   asset: string;
   symbol: string;
-  amount: string;
-  value: string;
+  amount: number;
   apy: number;
-  earned: string;
+  earned: number;
   duration: string;
   status: 'Active' | 'Locked' | 'Unlocking';
-  icon: string;
-  color: string;
+  icon?: string;
+  color?: string;
 }
-
-const stakedAssets: StakedAsset[] = [
-  { 
-    id: '1', 
-    asset: 'Ethereum', 
-    symbol: 'ETH', 
-    amount: '4.50 ETH', 
-    value: '$11,250.00', 
-    apy: 4.2, 
-    earned: '0.12 ETH', 
-    duration: '60 Days', 
-    status: 'Active', 
-    icon: '⟠', 
-    color: 'bg-blue-500' 
-  },
-  { 
-    id: '2', 
-    asset: 'Solana', 
-    symbol: 'SOL', 
-    amount: '120 SOL', 
-    value: '$15,600.00', 
-    apy: 7.5, 
-    earned: '4.2 SOL', 
-    duration: '30 Days', 
-    status: 'Locked', 
-    icon: 'S', 
-    color: 'bg-purple-500' 
-  },
-  { 
-    id: '3', 
-    asset: 'Polkadot', 
-    symbol: 'DOT', 
-    amount: '500 DOT', 
-    value: '$2,450.00', 
-    apy: 12.0, 
-    earned: '12.5 DOT', 
-    duration: '90 Days', 
-    status: 'Active', 
-    icon: 'P', 
-    color: 'bg-pink-500' 
-  },
-];
 
 export const StakingPage: React.FC = () => {
   const { theme } = useTheme();
+  const [stakes, setStakes] = useState<StakedAsset[]>([]);
 
-  const totalStaked = 29300.00;
-  const totalEarned = 842.50;
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    
+    const q = query(collection(db, 'users', auth.currentUser.uid, 'stakes'));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const stakesData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          // Map icon and color
+          icon: data.symbol === 'ETH' ? '⟠' : (data.symbol === 'SOL' ? 'S' : 'P'),
+          color: data.symbol === 'ETH' ? 'bg-blue-500' : (data.symbol === 'SOL' ? 'bg-purple-500' : 'bg-pink-500')
+        } as StakedAsset;
+      });
+      setStakes(stakesData);
+    });
+    
+    return () => unsubscribe();
+  }, [auth.currentUser]);
+
+  const totalStaked = stakes.reduce((acc, stake) => acc + (stake.amount * 2500), 0); // Simulated price
+  const totalEarned = stakes.reduce((acc, stake) => acc + stake.earned, 0);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -128,7 +110,7 @@ export const StakingPage: React.FC = () => {
       <section className="space-y-4">
         <h3 className="px-1 text-[10px] font-black text-[#8A93A6] uppercase tracking-[0.2em]">Active Stakes</h3>
         <div className="space-y-4">
-          {stakedAssets.map((item, i) => (
+          {stakes.map((item, i) => (
             <motion.div
               key={item.id}
               initial={{ opacity: 0, y: 10 }}
@@ -175,11 +157,11 @@ export const StakingPage: React.FC = () => {
               <div className="grid grid-cols-3 gap-4 py-4 border-t border-white/5">
                 <div>
                   <p className="text-[10px] font-bold text-[#8A93A6] uppercase tracking-wider mb-1">Staked Amount</p>
-                  <p className={cn("text-sm font-black font-mono", theme === 'dark' ? "text-white" : "text-[#0A0F1E]")}>{item.amount}</p>
+                  <p className={cn("text-sm font-black font-mono", theme === 'dark' ? "text-white" : "text-[#0A0F1E]")}>{item.amount} {item.symbol}</p>
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-[#8A93A6] uppercase tracking-wider mb-1">Earned Rewards</p>
-                  <p className="text-sm font-black text-[#3DDC84] font-mono">+{item.earned}</p>
+                  <p className="text-sm font-black text-[#3DDC84] font-mono">+{item.earned} {item.symbol}</p>
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-[#8A93A6] uppercase tracking-wider mb-1">Time Remaining</p>

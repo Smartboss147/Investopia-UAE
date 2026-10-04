@@ -83,6 +83,23 @@
         "txHash": { "type": "string" }
       },
       "required": ["userId", "type", "amount", "coin", "status", "timestamp"]
+    },
+    "Stake": {
+      "title": "Staked Asset",
+      "description": "Details of a user's staked asset",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "asset": { "type": "string" },
+        "symbol": { "type": "string" },
+        "amount": { "type": "number" },
+        "apy": { "type": "number" },
+        "earned": { "type": "number" },
+        "duration": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Locked", "Unlocking"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "asset", "symbol", "amount", "apy", "earned", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -97,6 +114,10 @@
     "/users/{userId}/transactions/{transactionId}": {
       "schema": "Transaction",
       "description": "User specific transaction history"
+    },
+    "/users/{userId}/stakes/{stakeId}": {
+      "schema": "Stake",
+      "description": "User specific staked assets"
     },
     "/admin_audit_logs/{logId}": {
       "description": "Administrative actions audit logs"
